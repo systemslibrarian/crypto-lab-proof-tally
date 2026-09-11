@@ -65,7 +65,7 @@ jobs:
       actions: write
     steps:
       - id: meta
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v3
       - name: Merge a bump whose full gate passed
         run: |
           for attempt in 1 2 3; do
