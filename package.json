@@ -1,0 +1,26 @@
+{
+  "name": "crypto-lab-proof-tally",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:a11y": "playwright test"
+  },
+  "dependencies": {
+    "@noble/hashes": "2.4.0",
+    "lucide": "0.468.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.3.0",
+    "typescript": "5.9.2",
+    "vite": "7.3.6",
+    "vitest": "4.1.11"
+  }
+}

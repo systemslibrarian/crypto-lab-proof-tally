@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <script>
+      (function () {
+        try { localStorage.setItem('theme', 'dark'); } catch (error) {}
+        document.documentElement.setAttribute('data-theme', 'dark');
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="An interactive Prio3Count and Prio3Sum lab using the Field64 and TurboSHAKE128 algorithms from draft-irtf-cfrg-vdaf-22." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Proof Tally — crypto-lab" />
+    <meta property="og:description" content="Split measurements, verify fully linear proofs, reject malformed reports, and collect a private aggregate with Prio3." />
+    <meta property="og:url" content="https://systemslibrarian.github.io/crypto-lab-proof-tally/" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%A7%AE</text></svg>" />
+    <title>Proof Tally — crypto-lab</title>
+  </head>
+  <body>
+    <style>
+      .cl-topbar{--cl-ink:color-mix(in srgb,var(--accent,#35d6bb) 60%,#eafff8);display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.7rem clamp(.9rem,3vw,2rem);background:#0b1512;border-bottom:1px solid color-mix(in srgb,var(--accent,#35d6bb) 22%,transparent);font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;position:sticky;top:0;z-index:1000}
+      .cl-brand{display:flex;align-items:center;gap:.8rem;text-decoration:none}.cl-badge{flex:0 0 auto;display:grid;place-items:center;width:40px;height:40px;border:1.5px solid var(--accent,#35d6bb);border-radius:8px;color:var(--cl-ink);font-weight:700;font-size:.95rem;letter-spacing:.05em}.cl-brand-text{display:flex;flex-direction:column;line-height:1.15}.cl-title{color:#eafff8;font-weight:700;font-size:1.05rem;letter-spacing:.12em}.cl-sub{color:#8eb5aa;font-size:.72rem;letter-spacing:.04em}.cl-actions{display:flex;align-items:center;gap:.5rem}.cl-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .85rem;border-radius:8px;border:1px solid #829b92;background:transparent;color:var(--cl-ink);cursor:pointer;font:inherit;font-size:.78rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;transition:background .15s,border-color .15s,color .15s}.cl-btn:hover{background:color-mix(in srgb,var(--accent,#35d6bb) 14%,transparent);border-color:var(--accent,#35d6bb);color:#eafff8}.cl-btn svg{width:15px;height:15px}.cl-skip-link{position:absolute;left:.5rem;top:-3rem;z-index:1001;padding:.55rem 1rem;border-radius:0 0 8px 8px;background:#eafff8;color:#0b1512;font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;font-weight:700;font-size:.8rem;letter-spacing:.04em;text-decoration:none;transition:top .15s ease}.cl-skip-link:focus{top:0;outline:2px solid var(--accent,#35d6bb);outline-offset:2px}body :is(#theme-toggle,#themeToggle,.theme-toggle,.theme-toggle-btn,[data-theme-toggle]){display:none!important}@media(max-width:560px){.cl-sub{display:none}.cl-btn span{display:none}.cl-btn svg{margin:0}}@media(pointer:coarse){.cl-btn{min-height:44px}}@media(pointer:coarse) and (min-width:380px){.cl-btn{min-width:44px}}
+    </style>
+    <a class="cl-skip-link" href="#app">Skip to content</a>
+    <header class="cl-topbar" role="banner" aria-label="Crypto Lab">
+      <a class="cl-brand" href="https://crypto-lab.systemslibrarian.dev/" aria-label="Crypto Lab home">
+        <span class="cl-badge">CL</span>
+        <span class="cl-brand-text"><span class="cl-title">CRYPTO LAB</span><span class="cl-sub">systemslibrarian.dev</span></span>
+      </a>
+      <nav class="cl-actions" aria-label="Crypto Lab navigation">
+        <a class="cl-btn" href="https://crypto-lab.systemslibrarian.dev/" aria-label="Crypto Lab menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span>Menu</span>
+        </a>
+        <a class="cl-btn" href="https://github.com/systemslibrarian/crypto-lab-proof-tally" target="_blank" rel="noopener" aria-label="View this project on GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7 0-.7 0-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0C17.3 5 18.3 5.3 18.3 5.3c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .4.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg><span>GitHub</span>
+        </a>
+      </nav>
+    </header>
+
+    <div id="app" tabindex="-1">
+      <div class="cl-hero">
+        <div class="cl-hero-main">
+          <p class="eyebrow">PRIVATE AGGREGATION, PROVEN</p>
+          <h1 class="cl-hero-title">Proof Tally</h1>
+          <p class="cl-hero-sub">Verifiable aggregation · Prio3 · VDAF</p>
+          <p class="cl-hero-desc">Split a salary into two shares, send each with part of a fully linear proof, and watch two aggregators accept the total without either reading the report.</p>
+        </div>
+        <aside class="cl-hero-why" aria-label="Why it matters">
+          <span class="cl-hero-why-label">WHY IT MATTERS</span>
+          <p class="cl-hero-why-text">Private telemetry is useful only if one liar cannot poison the total. Prio3 rejects a malformed report while keeping its measurement split between servers.</p>
+        </aside>
+      </div>
+
+      <section class="orientation" aria-labelledby="orientation-title">
+        <div><span class="section-number">00</span><h2 id="orientation-title">Privacy is not validity</h2></div>
+        <p>Secret sharing hides one measurement and still adds it perfectly, even when the measurement is a lie. Prio3 adds a proof to those shares so the servers can jointly answer one narrow question: is this report shaped correctly?</p>
+      </section>
+
+      <nav class="exhibit-nav" aria-label="Proof Tally exhibits">
+        <div class="tab-list" role="tablist" aria-label="Exhibits">
+          <button class="tab active" id="tab-protocol" role="tab" aria-selected="true" aria-controls="panel-protocol" data-panel="protocol"><i data-lucide="split" aria-hidden="true"></i> Protocol</button>
+          <button class="tab" id="tab-break" role="tab" aria-selected="false" aria-controls="panel-break" data-panel="break" tabindex="-1"><i data-lucide="triangle-alert" aria-hidden="true"></i> Break it</button>
+          <button class="tab" id="tab-limits" role="tab" aria-selected="false" aria-controls="panel-limits" data-panel="limits" tabindex="-1"><i data-lucide="scan-search" aria-hidden="true"></i> Limits &amp; vectors</button>
+        </div>
+      </nav>
+
+      <main>
+        <section id="panel-protocol" class="panel" role="tabpanel" aria-labelledby="tab-protocol" tabindex="0">
+          <div class="section-heading"><span class="section-number">01</span><div><h2>One report, two envelopes</h2><p>Choose a measurement, split it, then let both aggregators contribute a verifier share. Only their combined verifier can accept.</p></div></div>
+          <div class="workbench">
+            <div class="control-strip">
+              <fieldset class="mode-control">
+                <legend>Measurement type</legend>
+                <div class="segmented">
+                  <button type="button" class="segment active" aria-pressed="true" data-mode="sum">Prio3Sum</button>
+                  <button type="button" class="segment" aria-pressed="false" data-mode="count">Prio3Count</button>
+                </div>
+              </fieldset>
+              <div class="measurement-control">
+                <label for="measurement">Salary measurement</label>
+                <div class="input-action">
+                  <input id="measurement" type="number" min="0" max="16777215" step="1" value="125000" inputmode="numeric" />
+                  <button type="button" class="button primary" id="shard-button"><i data-lucide="split" aria-hidden="true"></i> Shard report</button>
+                </div>
+                <p class="field-help">24-bit range: 0 to 16,777,215. Client-side limits are convenience, not the defense.</p>
+              </div>
+            </div>
+
+            <ol class="rail" role="list" aria-label="Prio3 protocol stages">
+              <li class="rail-step active" data-rail="0" role="listitem"><span>1</span>Enter</li>
+              <li class="rail-step" data-rail="1" role="listitem"><span>2</span>Shard</li>
+              <li class="rail-step" data-rail="2" role="listitem"><span>3</span>Prepare</li>
+              <li class="rail-step" data-rail="3" role="listitem"><span>4</span>Collect</li>
+            </ol>
+
+            <div id="mechanism" class="mechanism" role="status" aria-live="polite"></div>
+            <div class="action-row">
+              <button type="button" class="button secondary" id="prepare-button" disabled><i data-lucide="shield-check" aria-hidden="true"></i> Combine verifier shares</button>
+              <button type="button" class="button secondary" id="aggregate-button" disabled><i data-lucide="sigma" aria-hidden="true"></i> Add accepted report</button>
+              <button type="button" class="button ghost" id="payroll-button"><i data-lucide="users" aria-hidden="true"></i> Load 12-person payroll</button>
+            </div>
+            <p id="retirement-status" class="retirement" role="status" aria-live="polite"></p>
+          </div>
+
+          <section class="tally-band" aria-labelledby="tally-title">
+            <div class="section-heading compact"><span class="section-number">02</span><div><h2 id="tally-title">Collector tally</h2><p>The protocol result is computed from output shares. The plain sum is computed separately and compared.</p></div></div>
+            <div id="tally-output" class="tally-output" role="status" aria-live="polite"></div>
+          </section>
+        </section>
+
+        <section id="panel-break" class="panel" role="tabpanel" aria-labelledby="tab-break" tabindex="0" hidden>
+          <div class="section-heading"><span class="section-number">03</span><div><h2>Make the verifier say no</h2><p>These controls bypass the friendly input path and attack the real proof preparation code.</p></div></div>
+          <div class="attack-grid">
+            <article class="attack-item">
+              <div class="attack-title"><i data-lucide="ruler" aria-hidden="true"></i><h3>Oversized salary</h3></div>
+              <p>Submit 4,000,000,000 into a 24-bit Sum circuit. The malicious client constructs a malformed encoding directly.</p>
+              <button type="button" class="button danger" id="range-attack">Submit out-of-range report</button>
+              <div id="range-result" class="attack-result" role="status" aria-live="polite"></div>
+            </article>
+            <article class="attack-item">
+              <div class="attack-title"><i data-lucide="file-warning" aria-hidden="true"></i><h3>Damaged proof share</h3></div>
+              <p>Flip one Field64 element after sharding. The salary shares are untouched; proof consistency fails.</p>
+              <button type="button" class="button danger" id="tamper-attack">Flip proof share</button>
+              <div id="tamper-result" class="attack-result" role="status" aria-live="polite"></div>
+            </article>
+            <article class="attack-item">
+              <div class="attack-title"><i data-lucide="repeat-2" aria-hidden="true"></i><h3>Repeated nonce</h3></div>
+              <p>Prio3 requires a fresh nonce per report. This lab's orchestration guard refuses a duplicate before preparation.</p>
+              <button type="button" class="button danger" id="nonce-attack">Reuse a nonce</button>
+              <div id="nonce-result" class="attack-result" role="status" aria-live="polite"></div>
+            </article>
+          </div>
+
+          <section class="collusion-band" aria-labelledby="collusion-title">
+            <div><p class="eyebrow alarm-text">TRUST ASSUMPTION</p><h3 id="collusion-title">Put both envelopes on one desk</h3><p>One aggregator sees only a random-looking share. If both aggregators collude, their shares add back to the encoded input.</p></div>
+            <label class="switch-row"><input id="collusion-toggle" type="checkbox" /><span>Collude the aggregators</span></label>
+            <div id="collusion-result" role="status" aria-live="polite"></div>
+          </section>
+        </section>
+
+        <section id="panel-limits" class="panel" role="tabpanel" aria-labelledby="tab-limits" tabindex="0" hidden>
+          <div class="section-heading"><span class="section-number">04</span><div><h2>What a valid proof cannot prove</h2><p>A validity proof checks the circuit statement, not the world outside it.</p></div></div>
+          <div class="limits-layout">
+            <section class="fixture" aria-labelledby="lie-title">
+              <p class="eyebrow">NEGATIVE CLAIM 01</p>
+              <h3 id="lie-title">A well-formed lie still passes</h3>
+              <p>Prio3 checks that a report is in range and correctly shared. It cannot check that the report is true.</p>
+              <button type="button" class="button primary" id="lie-fixture">Run valid-lie fixture</button>
+              <div id="lie-result" role="status" aria-live="polite"></div>
+            </section>
+            <section class="fixture" aria-labelledby="single-title">
+              <p class="eyebrow">NEGATIVE CLAIM 02</p>
+              <h3 id="single-title">A private share can reveal a public total</h3>
+              <p>Prio3 does not add differential privacy. With one accepted report, the aggregate is the report.</p>
+              <button type="button" class="button primary" id="single-fixture">Run one-report fixture</button>
+              <div id="single-result" role="status" aria-live="polite"></div>
+            </section>
+          </div>
+
+          <section class="vectors-section" aria-labelledby="vectors-title">
+            <div class="section-heading compact"><span class="section-number">05</span><div><h2 id="vectors-title">Pinned evidence</h2><p>Runtime checks use the same deterministic inputs as the committed unit tests.</p></div></div>
+            <div id="kat-panel" class="kat-panel" role="status" aria-live="polite"></div>
+            <details>
+              <summary>Protocol scope and extension seams</summary>
+              <div class="scope-grid">
+                <div><h3>Real here</h3><ul><li>Field64 arithmetic and serialization</li><li>TurboSHAKE128 with domain byte 1</li><li>BBCGGI19 FLP prove, query, and decide</li><li>Prio3Count and bounded Prio3Sum</li></ul></div>
+                <div><h3>Not this lab</h3><ul><li>DAP transport or HTTP</li><li>Poplar1 or IDPF</li><li>SumVec or Histogram</li><li>Differential privacy on the result</li><li>More than two aggregators</li></ul></div>
+                <div><h3>Extension seams</h3><ul><li>Vector circuits in <code>src/flp/circuit.ts</code></li><li>DP after <code>unshard()</code></li><li>Additional VDAF instances beside Prio3</li></ul></div>
+              </div>
+            </details>
+          </section>
+
+          <aside class="scope-warning"><i data-lucide="info" aria-hidden="true"></i><p><strong>Teaching implementation.</strong> The arithmetic and proof flow are real and vector-tested. This is not production crypto: it is not constant-time, has no DAP transport, and keeps demonstration keys in browser memory.</p></aside>
+        </section>
+      </main>
+
+      <footer class="scripture-footer">
+        <p class="footer-links">Related demos: <a href="https://systemslibrarian.github.io/crypto-lab-silent-tally/">Silent Tally</a> · <a href="https://systemslibrarian.github.io/crypto-lab-dp-noise/">DP Noise</a> · <a href="https://systemslibrarian.github.io/crypto-lab-jevil/">Jevil</a></p>
+        <p>So whether you eat or drink or whatever you do, do it all for the glory of God. — 1 Corinthians 10:31</p>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

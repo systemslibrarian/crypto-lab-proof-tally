@@ -1,1 +1,125 @@
-# crypto-lab-proof-tally
+# Proof Tally
+
+## What It Is
+
+Proof Tally is an interactive implementation of `Prio3Count` and `Prio3Sum` from
+[`draft-irtf-cfrg-vdaf-22`](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vdaf-22),
+published 14 August 2026. A client splits each measurement and its fully linear proof between two
+aggregators. Neither aggregator receives the measurement, but together their verifier shares reject
+a malformed report before it enters the aggregate.
+
+The teaching implementation uses the draft's Field64 arithmetic and TurboSHAKE128 XOF with domain
+byte `D=1`. Its deterministic tests are pinned to CFRG reference commit
+[`e1d1e1c3854a34589c0c2d9b899a48533cac9004`](https://github.com/cfrg/draft-irtf-cfrg-vdaf/tree/e1d1e1c3854a34589c0c2d9b899a48533cac9004),
+tagged `draft-irtf-cfrg-vdaf-22`.
+
+This is not production crypto. It is browser-based teaching code, is not constant-time, and does not
+implement DAP transport or persistence.
+
+## Exhibits
+
+1. **One report, two envelopes** - enter a Count or bounded Sum measurement, shard it, inspect each
+	aggregator's separate inputs, combine verifier shares, and add the accepted output shares.
+2. **Synthetic payroll** - run twelve reports and compare the protocol aggregate with an independently
+	computed plain sum.
+3. **Break it yourself** - inject a four-billion-unit value into a 24-bit circuit, flip a proof-share
+	field element, reuse a nonce, or collude both aggregators.
+4. **Valid and false** - submit a correctly proven salary of zero when the sealed truth is nonzero.
+	Every Prio3 check passes and the aggregate is still false.
+5. **One-report disclosure** - demonstrate that private input shares do not make a one-person aggregate
+	differentially private.
+6. **Pinned evidence** - run three browser-visible checks against the official Count and Sum vectors.
+
+## When to Use It
+
+Use a VDAF when multiple non-colluding aggregators need an aggregate over privately submitted,
+well-formed measurements. Prio3 is useful for bounded sums, counters, and related telemetry where a
+malformed report must not poison the result.
+
+Do not use this lab as a deployment library. Do not use Prio3 alone when the output also needs
+differential privacy, when both aggregators may collude, or when authenticity and truthfulness of the
+underlying measurement are required.
+
+## Live Demo
+
+[Open Proof Tally on GitHub Pages](https://systemslibrarian.github.io/crypto-lab-proof-tally/).
+
+The page runs entirely in the browser. It creates fresh report randomness, prepares real verifier
+shares, and combines accepted output shares without a backend.
+
+## What Can Go Wrong
+
+- An out-of-range or malformed report is rejected when the combined verifier is nonzero.
+- A changed proof share fails the gadget-consistency check.
+- Reusing a nonce violates the VDAF contract; this lab's orchestration layer rejects duplicates.
+- If both aggregators collude, they can reconstruct each input.
+- A well-formed lie remains valid because the proof checks structure, not external truth.
+- An aggregate over one report reveals that report unless a separate privacy mechanism is applied.
+- Zero accepted reports have no defined aggregate and are refused.
+
+## Real-World Usage
+
+Prio introduced private, robust aggregate statistics at scale. VDAFs generalize that construction for
+systems such as Distributed Aggregation Protocol deployments. Proof Tally deliberately omits DAP's
+HTTP transport and task orchestration so the report, proof, verifier, and aggregation mechanics stay
+inspectable.
+
+Primary references:
+
+- [Verifiable Distributed Aggregation Functions, draft-22](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vdaf-22)
+- [KangarooTwelve and TurboSHAKE, RFC 9861](https://www.rfc-editor.org/rfc/rfc9861.html)
+- [Prio: Private, Robust, and Scalable Computation of Aggregate Statistics](https://www.usenix.org/conference/nsdi17/technical-sessions/presentation/corrigan-gibbs)
+- [Zero-Knowledge Proofs on Secret-Shared Data via Fully Linear PCPs](https://eprint.iacr.org/2019/188)
+- [Distributed Aggregation Protocol](https://datatracker.ietf.org/doc/html/draft-ietf-ppm-dap)
+
+## How to Run Locally
+
+Requires Node.js 22 or later.
+
+```bash
+npm ci
+npm run dev
+```
+
+For the production build:
+
+```bash
+npm run build
+npm run preview -- --port 4687
+```
+
+## Related Demos
+
+- [Silent Tally](https://systemslibrarian.github.io/crypto-lab-silent-tally/) - private aggregation vocabulary
+- [DP Noise](https://systemslibrarian.github.io/crypto-lab-dp-noise/) - privacy for released aggregates
+- [Jevil](https://systemslibrarian.github.io/crypto-lab-jevil/) - Goldilocks field arithmetic
+
+## Build & Verify
+
+```bash
+npm test
+npm run build
+npx playwright install --with-deps chromium
+npm run test:a11y
+```
+
+The correctness suite currently contains 12 Vitest tests. It includes the official
+`XofTurboShake128`, `Prio3Count_0`, and `Prio3Sum_0` known-answer fixtures, exact serialized verifier
+shares, malformed-input rejection, proof-share tampering, aggregation, and Field64 boundaries.
+
+The Playwright gate contains 10 tests. Two drive every reachable exhibit at desktop and 380px with
+reduced motion, axe WCAG 2.1 A/AA, independent text-contrast and control-boundary oracles, and reflow
+checks. Eight claims tests independently recompute the displayed verifier sum, payroll aggregate,
+range boundary, KAT count, retirement behavior, and both negative claims.
+
+## Performance
+
+Prio3Sum proof work grows with the configured bit width. This lab uses a 24-bit payroll bound so each
+interaction remains immediate while still exercising the real circuit, polynomial, XOF, and verifier
+paths. It makes no production performance claim.
+
+---
+
+*One of the browser demos in the [Crypto Lab](https://crypto-lab.systemslibrarian.dev/) suite.*
+
+*"So whether you eat or drink or whatever you do, do it all for the glory of God." — 1 Corinthians 10:31*
