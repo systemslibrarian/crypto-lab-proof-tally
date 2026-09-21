@@ -108,39 +108,66 @@ npm run test:a11y
 npm run test:verdicts
 ```
 
-The correctness suite currently contains 32 Vitest tests. It includes the official
+The correctness suite currently contains 59 Vitest tests. It includes the official
 `XofTurboShake128`, `Prio3Count_0`, and `Prio3Sum_0` known-answer fixtures, exact serialized verifier
 shares, malformed-input rejection, proof-share tampering, aggregation, Field64 boundaries, the
 replay behaviour: that preparation accepts a replayed report a second time, that the unrefused replay
-doubles the aggregate, and that the registry admits a nonce exactly once - and the verdict marker
+doubles the aggregate, and that the registry admits a nonce exactly once - and the marker
 registry described below.
 
-The Playwright gate contains 19 tests. Two drive every reachable exhibit at desktop and 380px with
+The Playwright gate contains 23 tests. Two drive every reachable exhibit at desktop and 380px with
 reduced motion, axe WCAG 2.1 A/AA, independent text-contrast and control-boundary oracles, and reflow
-checks. Fourteen claims tests independently recompute the displayed verifier sum, payroll aggregate,
-range boundary, KAT count and summary word, retirement behavior, the replayed-versus-single
-aggregate, the preparation verdict against the displayed combined verifier, the tally match word
-against the two displayed totals, the gadget-consistency refusal, the colluded reconstruction, and
-both negative claims. Three verdict-coverage tests are described below.
+checks. Fifteen claims tests independently recompute the displayed verifier sum, payroll aggregate,
+range boundary, KAT count and summary word, retirement behavior, the sharded envelopes, the replayed
+tally summed over its rendered contributions, the preparation verdict against the displayed combined
+verifier, the tally match word against the two displayed totals, the gadget-consistency refusal, the
+colluded reconstruction, and both negative claims. Six verdict-coverage tests are described below.
 
-## Every Verdict Is Computed, and Every Verdict Is Mutated
+## Every Verdict and Every Measurement Is Computed, Marked, and Mutated
 
-Nothing this page prints as an outcome is a fixed string. Each rendered verdict branches on a value
-the page computed, and carries a `data-verdict` marker naming it:
+Nothing this page prints as an outcome is a fixed string, and nothing it prints as a number is
+unchecked. Each rendered verdict branches on a value the page computed and carries a `data-verdict`
+marker; each rendered measurement carries a `data-claim` marker and the `data-value` behind the words.
 
-`preparation` · `tally-match` · `range-attack` · `tamper-attack` · `replay-vdaf` · `replay-intake` ·
-`collusion` · `valid-lie` · `valid-lie-row` · `single-report` · `kat-summary` · `kat-row`
+Verdicts (12): `preparation` · `tally-match` · `range-attack` · `tamper-attack` · `replay-vdaf` ·
+`replay-intake` · `collusion` · `valid-lie` · `valid-lie-row` · `single-report` · `kat-summary` ·
+`kat-row`
 
-Coverage is derived by walking the rendered page, not from a list kept by hand. `e2e/verdicts.spec.ts`
-drives every exhibit and fails when:
+Measurements (22): `report-measurement` · `leader-share` · `helper-share` · `verifier-a` ·
+`verifier-b` · `combined-verifier` · `submitted-count` · `accepted-count` · `rejected-count` ·
+`protocol-aggregate` · `plain-sum` · `collusion-share-a` · `collusion-share-b` · `lie-row-reported` ·
+`lie-row-sealed` · `lie-aggregate` · `lie-truth` · `single-input` · `single-aggregate` · `kat-count` ·
+`replay-contribution` · `replay-total`
 
-- a rendered marker has no recorded mutation in `e2e/verdict-mutations.json`, or a recorded mutation
-  names a marker the page no longer renders;
+Coverage is derived by walking the rendered page, not from a list kept by hand. `driveEveryState()`
+visits **every option of every control that changes what renders** - both measurement types, the
+measurement input unchanged, changed and empty, all three tabs, both fixture buttons, all three
+attack buttons, and the collusion switch in both positions - each control on its own rather than the
+cross-product. It is not a test; it is the denominator the rules below are applied to, so a state it
+never reaches is outside all of them. The tab list's arrow keys and the limits panel's `<details>`
+are skipped on purpose: they reach no markup the walk does not already hold.
+
+`e2e/verdicts.spec.ts` drives that walk and fails when:
+
+- a rendered marker of **either** family has no recorded mutation in `e2e/verdict-mutations.json`, or
+  a recorded mutation names a marker the page no longer renders;
 - verdict wording or verdict styling is rendered **outside** a marker - the shape a raw banner takes
   when someone adds one later. The spec injects exactly that banner, with and without the house
-  styling, and fails if the audit does not catch it.
+  styling, and fails if the audit does not catch it;
+- a **measurement** is rendered outside a marker in any result region: digit-plus-unit text, or a
+  bare number. A number carries none of the signals the banner rules look for, and is the easier
+  mistake to make. The spec injects one of those too;
+- a recorded mutation's killing test does not go through `expectVerdict()` / `expectClaim()`. Those
+  helpers assert a marker's text **and** its state (`data-result` plus the class that paints it) in
+  one call, so a mutation that flips the sentence while the pass styling stays cannot be recorded as
+  a kill. `valid-lie-row`'s recorded mutation is exactly that shape: it flips only the paint, leaves
+  the word `VALID` standing, and is killed on the class.
 
-Each of the twelve markers has a §4.1c mutation recorded with the recipe that produces it:
+Where a total is summed over a list, the oracle sums the rendered list rather than multiplying one
+entry by a count - the payroll tally, the valid-lie ledger, and the replay tally all derive their
+expected total that way.
+
+Each of the thirty-four markers has a §4.1c mutation recorded with the recipe that produces it:
 
 ```bash
 node tools/verdict-mutation.mjs list
@@ -153,8 +180,15 @@ node tools/verdict-mutation.mjs restore <marker>
 checkout by a server left running from an earlier pass.
 
 The `verdict-coverage` job in `.github/workflows/deploy.yml` runs this gate as its own required
-check, and `deploy` declares `needs: [build, verdict-coverage]`, so an uncovered verdict cannot
-reach the live site even on a direct push to `main`.
+check, and `deploy` declares `needs: [build, verdict-coverage]`, so an uncovered verdict or
+measurement cannot reach the live site even on a direct push to `main`.
+
+**One thing this gate cannot decide.** The replay exhibit submits the same report twice, so its two
+contributions are equal by construction and summing them is observationally identical to doubling
+one. A page rewritten to multiply the first contribution by the contribution count passes every test
+here, and was run to confirm it. What the summed oracle does buy is that no literal `2` remains in
+the spec, the per-submission contributions are rendered and counted, and a page that aggregates only
+the first submission is killed (`replay-total`).
 
 ## Performance
 
