@@ -85,7 +85,7 @@ For the production build:
 
 ```bash
 npm run build
-npm run preview -- --port 4687
+npm run preview -- --port 4686
 ```
 
 ## Related Demos
