@@ -1,1 +1,0 @@
-export { tamperProofShare } from '../prio3/core'
