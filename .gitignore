@@ -4,3 +4,9 @@ test-results/
 playwright-report/
 coverage/
 *.local
+
+# The master template is a working copy, never a committed second standard.
+# A tracked copy ages silently into a wrong, frozen version of the fleet standard.
+template.md
+_MASTER-TEMPLATE.md
+CRYPTO-LAB-TEMPLATE.md
