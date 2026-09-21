@@ -90,3 +90,17 @@ test('one accepted report exposes itself through the aggregate', async ({ page }
   await expect(fixture).toContainText('does not provide differential privacy')
   await expect(fixture).toContainText('SHARES PRIVATE - AND THE TOTAL IS THE INPUT')
 })
+
+test('a replayed report re-verifies and only the intake registry stops it', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Break it' }).click()
+  await page.getByRole('button', { name: 'Replay a report' }).click()
+  const result = page.locator('[data-replay]')
+  await expect(result).toHaveAttribute('data-first-admitted', 'true')
+  await expect(result).toHaveAttribute('data-vdaf-replay-accepted', 'true')
+  await expect(result).toHaveAttribute('data-guard-admitted', 'false')
+  const single = BigInt(await result.getAttribute('data-single-aggregate') ?? '')
+  const doubled = BigInt(await result.getAttribute('data-replayed-aggregate') ?? '')
+  expect(doubled).toBe(single * 2n)
+  await expect(result).toContainText('PREPARATION ACCEPTED IT AGAIN')
+  await expect(result).toContainText('REJECTED BY INTAKE')
+})

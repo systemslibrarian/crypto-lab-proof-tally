@@ -73,7 +73,7 @@ export async function driveAllStates(page: Page, viewportLabel: string): Promise
   await page.getByRole('tab', { name: 'Break it' }).click()
   await page.getByRole('button', { name: 'Submit out-of-range report' }).click()
   await page.getByRole('button', { name: 'Flip proof share' }).click()
-  await page.getByRole('button', { name: 'Reuse a nonce' }).click()
+  await page.getByRole('button', { name: 'Replay a report' }).click()
   await page.getByLabel('Collude the aggregators').check()
   await expect(page.locator('#collusion-result')).toContainText('BROKEN: INPUT REVEALED')
   await scan(page, `${viewportLabel}: attacks and collusion`)

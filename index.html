@@ -126,9 +126,9 @@
               <div id="tamper-result" class="attack-result" role="status" aria-live="polite"></div>
             </article>
             <article class="attack-item">
-              <div class="attack-title"><i data-lucide="repeat-2" aria-hidden="true"></i><h3>Repeated nonce</h3></div>
-              <p>Prio3 requires a fresh nonce per report. This lab's orchestration guard refuses a duplicate before preparation.</p>
-              <button type="button" class="button danger" id="nonce-attack">Reuse a nonce</button>
+              <div class="attack-title"><i data-lucide="repeat-2" aria-hidden="true"></i><h3>Replayed report</h3></div>
+              <p>Send the identical report twice. Preparation verifies it again and accepts it again; only this lab's nonce registry, outside the VDAF, refuses the duplicate.</p>
+              <button type="button" class="button danger" id="nonce-attack">Replay a report</button>
               <div id="nonce-result" class="attack-result" role="status" aria-live="polite"></div>
             </article>
           </div>

@@ -23,7 +23,9 @@ implement DAP transport or persistence.
 2. **Synthetic payroll** - run twelve reports and compare the protocol aggregate with an independently
 	computed plain sum.
 3. **Break it yourself** - inject a four-billion-unit value into a 24-bit circuit, flip a proof-share
-	field element, reuse a nonce, or collude both aggregators.
+	field element, replay a report, or collude both aggregators. The replay submits one report twice:
+	preparation runs on the duplicate and accepts it again, and the nonce registry outside the VDAF is
+	what refuses it.
 4. **Valid and false** - submit a correctly proven salary of zero when the sealed truth is nonzero.
 	Every Prio3 check passes and the aggregate is still false.
 5. **One-report disclosure** - demonstrate that private input shares do not make a one-person aggregate
@@ -51,7 +53,9 @@ shares, and combines accepted output shares without a backend.
 
 - An out-of-range or malformed report is rejected when the combined verifier is nonzero.
 - A changed proof share fails the gadget-consistency check.
-- Reusing a nonce violates the VDAF contract; this lab's orchestration layer rejects duplicates.
+- A replayed report still passes preparation - its proofs are still correct, and the VDAF keeps no
+  memory of reports it has seen - so the aggregate would count it twice. Replay is refused outside
+  the VDAF; this lab's `NonceRegistry` rejects a 16-byte nonce it has already admitted.
 - If both aggregators collude, they can reconstruct each input.
 - A well-formed lie remains valid because the proof checks structure, not external truth.
 - An aggregate over one report reveals that report unless a separate privacy mechanism is applied.
@@ -103,14 +107,17 @@ npx playwright install --with-deps chromium
 npm run test:a11y
 ```
 
-The correctness suite currently contains 12 Vitest tests. It includes the official
+The correctness suite currently contains 17 Vitest tests. It includes the official
 `XofTurboShake128`, `Prio3Count_0`, and `Prio3Sum_0` known-answer fixtures, exact serialized verifier
-shares, malformed-input rejection, proof-share tampering, aggregation, and Field64 boundaries.
+shares, malformed-input rejection, proof-share tampering, aggregation, Field64 boundaries, and the
+replay behaviour: that preparation accepts a replayed report a second time, that the unrefused replay
+doubles the aggregate, and that the registry admits a nonce exactly once.
 
-The Playwright gate contains 10 tests. Two drive every reachable exhibit at desktop and 380px with
+The Playwright gate contains 11 tests. Two drive every reachable exhibit at desktop and 380px with
 reduced motion, axe WCAG 2.1 A/AA, independent text-contrast and control-boundary oracles, and reflow
-checks. Eight claims tests independently recompute the displayed verifier sum, payroll aggregate,
-range boundary, KAT count, retirement behavior, and both negative claims.
+checks. Nine claims tests independently recompute the displayed verifier sum, payroll aggregate,
+range boundary, KAT count, retirement behavior, the replayed-versus-single aggregate, and both
+negative claims.
 
 ## Performance
 

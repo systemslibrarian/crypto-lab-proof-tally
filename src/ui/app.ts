@@ -4,6 +4,7 @@ import { encodeField64, type Field64 } from '../field/field64'
 import { aggregateOutputShares, unshard } from '../prio3/aggregate'
 import { tamperProofShare, type Prio3 } from '../prio3/core'
 import { createPrio3Count, createPrio3Sum } from '../prio3/instances'
+import { NonceRegistry } from '../prio3/replay'
 import type { PreparationTrace, Report } from '../prio3/types'
 
 type Mode = 'sum' | 'count'
@@ -39,6 +40,19 @@ const SYNTHETIC_PAYROLL = [
 let mode: Mode = 'sum'
 let activeReport: ActiveReport | undefined
 let records: TallyRecord[] = []
+
+/**
+ * The aggregators' intake desk. Every report that reaches preparation on this page
+ * passes through it first, because the VDAF will not refuse a report it has already
+ * verified once. See src/prio3/replay.ts.
+ */
+const intake = new NonceRegistry()
+
+/** Returns the preparation trace, or undefined when intake refused the nonce as a replay. */
+function intakeReport(protocol: Prio3, report: Report): PreparationTrace | undefined {
+  if (!intake.admit(report)) return undefined
+  return protocol.prepare(VERIFY_KEY, CONTEXT, report)
+}
 
 function element<T extends HTMLElement>(selector: string): T {
   const found = document.querySelector<T>(selector)
@@ -167,7 +181,12 @@ function shardCurrent(): void {
 
 function prepareCurrent(): void {
   if (!activeReport) return
-  activeReport.trace = protocolFor(activeReport.mode).prepare(VERIFY_KEY, CONTEXT, activeReport.report)
+  const trace = intakeReport(protocolFor(activeReport.mode), activeReport.report)
+  if (!trace) {
+    element('#retirement-status').textContent = 'Intake refused this report: its 16-byte nonce was already seen. Preparation was not started.'
+    return
+  }
+  activeReport.trace = trace
   element('#retirement-status').textContent = activeReport.trace.accepted
     ? 'Preparation accepted the report.'
     : `Preparation rejected the report: ${activeReport.trace.cause}.`
@@ -187,14 +206,14 @@ function loadPayroll(): void {
   mode = 'sum'
   updateModeControls()
   const protocol = protocolFor('sum')
-  records = SYNTHETIC_PAYROLL.map(([, salary]) => ({
-    reported: salary,
-    truth: salary,
-    trace: protocol.prepare(VERIFY_KEY, CONTEXT, protocol.shard(CONTEXT, salary)),
-  }))
+  records = SYNTHETIC_PAYROLL.map(([, salary]) => {
+    const trace = intakeReport(protocol, protocol.shard(CONTEXT, salary))
+    if (!trace) throw new Error('intake refused a freshly generated nonce')
+    return { reported: salary, truth: salary, trace }
+  })
   const [name, salary] = SYNTHETIC_PAYROLL.at(-1)!
   const report = protocol.shard(CONTEXT, salary)
-  activeReport = { mode: 'sum', measurement: salary, report, trace: protocol.prepare(VERIFY_KEY, CONTEXT, report), added: true }
+  activeReport = { mode: 'sum', measurement: salary, report, trace: intakeReport(protocol, report), added: true }
   element('#retirement-status').textContent = `Loaded a labeled synthetic payroll. Last accepted report: ${name}.`
   renderMechanism()
   renderTally()
@@ -219,6 +238,7 @@ function updateModeControls(): void {
   }
   activeReport = undefined
   records = []
+  intake.clear()
   element('#retirement-status').textContent = 'Protocol mode changed; previous result retired.'
   renderMechanism()
   renderTally()
@@ -240,13 +260,37 @@ function runTamperAttack(): void {
 }
 
 function runNonceAttack(): void {
-  const nonce = crypto.getRandomValues(new Uint8Array(16))
-  const nonceKey = toHex(nonce)
-  const seen = new Set<string>([nonceKey])
-  const duplicateAccepted = !seen.has(nonceKey)
-  element('#nonce-result').innerHTML = duplicateAccepted
-    ? verdict('alarm', 'ALARM', 'duplicate nonce was not detected')
-    : verdict('reject', 'REJECTED BY ORCHESTRATION', 'duplicate 16-byte nonce; VDAF preparation was not started')
+  const protocol = createPrio3Sum(SUM_MAXIMUM)
+  const registry = new NonceRegistry()
+  const report = protocol.shard(CONTEXT, 125_000n)
+  const nonceKey = toHex(report.nonce)
+
+  // First submission: intake records the nonce, preparation runs, the report is accepted.
+  const firstAdmitted = registry.admit(report)
+  const firstTrace = protocol.prepare(VERIFY_KEY, CONTEXT, report)
+
+  // Replay: the identical report, byte for byte. Preparation is run anyway, to show
+  // what the VDAF alone would say about it.
+  const replayAdmitted = registry.admit(report)
+  const replayTrace = protocol.prepare(VERIFY_KEY, CONTEXT, report)
+
+  if (!firstTrace.outputShares || !replayTrace.outputShares) {
+    element('#nonce-result').innerHTML = verdict('alarm', 'FIXTURE FAILED', 'the honest report did not prepare')
+    return
+  }
+  const single = unshard([firstTrace.outputShares[0], firstTrace.outputShares[1]], 1)
+  const doubled = unshard(
+    [
+      aggregateOutputShares([firstTrace.outputShares[0], replayTrace.outputShares[0]]),
+      aggregateOutputShares([firstTrace.outputShares[1], replayTrace.outputShares[1]]),
+    ],
+    2,
+  )
+  element('#nonce-result').innerHTML = `<div data-replay="true" data-first-admitted="${firstAdmitted}" data-guard-admitted="${replayAdmitted}" data-vdaf-replay-accepted="${replayTrace.accepted}" data-single-aggregate="${single}" data-replayed-aggregate="${doubled}">
+    ${verdict('alarm', 'PREPARATION ACCEPTED IT AGAIN', `the proofs in a replayed report are still correct, so the VDAF returns accepted a second time; the tally would move from ${money(single)} to ${money(doubled)} on one measurement`)}
+    ${verdict('reject', 'REJECTED BY INTAKE', `nonce ${nonceKey.slice(0, 16)}… was already seen; this lab's registry refuses the duplicate before preparation`)}
+    <p>Replay is not something the proof can catch. It is refused outside the VDAF, by the layer that remembers nonces.</p>
+  </div>`
 }
 
 function toggleCollusion(checked: boolean): void {
