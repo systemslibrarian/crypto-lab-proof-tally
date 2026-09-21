@@ -1,6 +1,7 @@
 import { collude } from '../attack/collude'
 import { VALID_LIE_FIXTURE } from '../attack/lie'
 import { encodeField64, type Field64 } from '../field/field64'
+import { SumCircuit } from '../flp/circuit'
 import { aggregateOutputShares, unshard } from '../prio3/aggregate'
 import { tamperProofShare, type Prio3 } from '../prio3/core'
 import { createPrio3Count, createPrio3Sum } from '../prio3/instances'
@@ -42,16 +43,13 @@ let activeReport: ActiveReport | undefined
 let records: TallyRecord[] = []
 
 /**
- * The aggregators' intake desk. Every report that reaches preparation on this page
- * passes through it first, because the VDAF will not refuse a report it has already
- * verified once. See src/prio3/replay.ts.
+ * An accepted preparation always carries both output shares (src/prio3/core.ts). This
+ * is an invariant, not an outcome: it has no verdict, and a violation is a bug that
+ * must throw rather than be painted as a result the exhibit computed.
  */
-const intake = new NonceRegistry()
-
-/** Returns the preparation trace, or undefined when intake refused the nonce as a replay. */
-function intakeReport(protocol: Prio3, report: Report): PreparationTrace | undefined {
-  if (!intake.admit(report)) return undefined
-  return protocol.prepare(VERIFY_KEY, CONTEXT, report)
+function requireOutputShares(trace: PreparationTrace, label: string): [Field64[], Field64[]] {
+  if (!trace.outputShares) throw new Error(`${label}: an accepted preparation produced no output shares`)
+  return trace.outputShares
 }
 
 function element<T extends HTMLElement>(selector: string): T {
@@ -91,9 +89,15 @@ function setRail(stage: number): void {
   })
 }
 
-function verdict(kind: 'pass' | 'reject' | 'alarm', heading: string, detail: string): string {
+/**
+ * Renders one outcome. `marker` is the verdict's identity in the DOM: e2e/verdicts.spec.ts
+ * walks the rendered page, requires every marker it finds to have a recorded §4.1c mutation
+ * in e2e/verdict-mutations.json, and fails on verdict wording or verdict styling rendered
+ * outside a marker. Never call this with a heading that does not depend on a computed value.
+ */
+function verdict(marker: string, kind: 'pass' | 'reject' | 'alarm', heading: string, detail: string): string {
   const icon = kind === 'pass' ? 'OK' : kind === 'reject' ? 'NO' : '!'
-  return `<div class="verdict ${kind}"><span class="verdict-icon" aria-hidden="true">${icon}</span><div><strong>${heading}</strong><span>${detail}</span></div></div>`
+  return `<div class="verdict ${kind}" data-verdict="${marker}"><span class="verdict-icon" aria-hidden="true">${icon}</span><div><strong>${heading}</strong><span>${detail}</span></div></div>`
 }
 
 function renderMechanism(): void {
@@ -132,8 +136,8 @@ function renderMechanism(): void {
       <div><span>COMBINED</span><code data-combined-verifier="${trace.combinedVerifier[0]}">${fieldHex(trace.combinedVerifier[0])}</code></div>
     </div>
     ${trace.accepted
-      ? verdict('pass', 'VALID', 'combined verifier is zero; this report may enter the tally')
-      : verdict('reject', 'REJECTED', trace.cause)}`
+      ? verdict('preparation', 'pass', 'VALID', 'combined verifier is zero; this report may enter the tally')
+      : verdict('preparation', 'reject', 'REJECTED', trace.cause)}`
   }
   if (activeReport.added) html += `<p class="added-note">Accepted output shares were added independently. Only the collector combines the two totals.</p>`
   root.innerHTML = html
@@ -151,7 +155,8 @@ function renderTally(): void {
   const helperAggregate = aggregateOutputShares(accepted.map((record) => record.trace.outputShares![1]))
   const aggregate = unshard([leaderAggregate, helperAggregate], accepted.length)
   const plainSum = accepted.reduce((sum, record) => sum + record.reported, 0n)
-  root.innerHTML = `<div class="tally-stat"><span>SUBMITTED</span><strong data-submitted-count="${records.length}">${records.length}</strong></div><div class="tally-stat"><span>ACCEPTED</span><strong data-accepted-count="${accepted.length}">${accepted.length}</strong></div><div class="tally-stat"><span>REJECTED</span><strong data-rejected-count="${rejected}">${rejected}</strong></div><div class="sum-comparison"><div><span>PROTOCOL AGGREGATE</span><strong data-aggregate="${aggregate}">${mode === 'sum' ? money(aggregate) : aggregate}</strong></div><span class="equality">=</span><div><span>PLAIN SUM</span><strong data-plain-sum="${plainSum}">${mode === 'sum' ? money(plainSum) : plainSum}</strong></div><p class="byte-match">MATCH: Field64 byte equality</p>${accepted.map((record) => `<i data-accepted-value="${record.reported}" hidden></i>`).join('')}</div>`
+  const agrees = aggregate === plainSum
+  root.innerHTML = `<div class="tally-stat"><span>SUBMITTED</span><strong data-submitted-count="${records.length}">${records.length}</strong></div><div class="tally-stat"><span>ACCEPTED</span><strong data-accepted-count="${accepted.length}">${accepted.length}</strong></div><div class="tally-stat"><span>REJECTED</span><strong data-rejected-count="${rejected}">${rejected}</strong></div><div class="sum-comparison"><div><span>PROTOCOL AGGREGATE</span><strong data-aggregate="${aggregate}">${mode === 'sum' ? money(aggregate) : aggregate}</strong></div><span class="equality${agrees ? '' : ' mismatch'}" data-verdict="tally-match" aria-hidden="true">${agrees ? '=' : '!='}</span><div><span>PLAIN SUM</span><strong data-plain-sum="${plainSum}">${mode === 'sum' ? money(plainSum) : plainSum}</strong></div><p class="byte-match${agrees ? '' : ' mismatch'}" data-verdict="tally-match" data-tally-agrees="${agrees}">${agrees ? 'MATCH: Field64 byte equality' : 'MISMATCH: the protocol aggregate is not the plain sum'}</p>${accepted.map((record) => `<i data-accepted-value="${record.reported}" hidden></i>`).join('')}</div>`
 }
 
 function retireIfChanged(nextValue: bigint): void {
@@ -181,12 +186,7 @@ function shardCurrent(): void {
 
 function prepareCurrent(): void {
   if (!activeReport) return
-  const trace = intakeReport(protocolFor(activeReport.mode), activeReport.report)
-  if (!trace) {
-    element('#retirement-status').textContent = 'Intake refused this report: its 16-byte nonce was already seen. Preparation was not started.'
-    return
-  }
-  activeReport.trace = trace
+  activeReport.trace = protocolFor(activeReport.mode).prepare(VERIFY_KEY, CONTEXT, activeReport.report)
   element('#retirement-status').textContent = activeReport.trace.accepted
     ? 'Preparation accepted the report.'
     : `Preparation rejected the report: ${activeReport.trace.cause}.`
@@ -207,13 +207,12 @@ function loadPayroll(): void {
   updateModeControls()
   const protocol = protocolFor('sum')
   records = SYNTHETIC_PAYROLL.map(([, salary]) => {
-    const trace = intakeReport(protocol, protocol.shard(CONTEXT, salary))
-    if (!trace) throw new Error('intake refused a freshly generated nonce')
+    const trace = protocol.prepare(VERIFY_KEY, CONTEXT, protocol.shard(CONTEXT, salary))
     return { reported: salary, truth: salary, trace }
   })
   const [name, salary] = SYNTHETIC_PAYROLL.at(-1)!
   const report = protocol.shard(CONTEXT, salary)
-  activeReport = { mode: 'sum', measurement: salary, report, trace: intakeReport(protocol, report), added: true }
+  activeReport = { mode: 'sum', measurement: salary, report, trace: protocol.prepare(VERIFY_KEY, CONTEXT, report), added: true }
   element('#retirement-status').textContent = `Loaded a labeled synthetic payroll. Last accepted report: ${name}.`
   renderMechanism()
   renderTally()
@@ -238,7 +237,6 @@ function updateModeControls(): void {
   }
   activeReport = undefined
   records = []
-  intake.clear()
   element('#retirement-status').textContent = 'Protocol mode changed; previous result retired.'
   renderMechanism()
   renderTally()
@@ -246,17 +244,24 @@ function updateModeControls(): void {
 
 function runRangeAttack(): void {
   const protocol = createPrio3Sum(SUM_MAXIMUM)
+  const circuit = protocol.options.circuit as SumCircuit
   const maliciousValue = 4_000_000_000n
-  const malformed = [maliciousValue, ...Array<Field64>(23).fill(0n)]
+  const malformed = [maliciousValue, ...Array<Field64>(circuit.measurementLength - 1).fill(0n)]
   const trace = protocol.prepare(VERIFY_KEY, CONTEXT, protocol.shardEncoded(CONTEXT, malformed))
-  element('#range-result').innerHTML = `<div data-rejected-value="${maliciousValue}" data-bit-width="24">${verdict('reject', 'REJECTED', `${maliciousValue.toLocaleString('en-US')} ≥ 2^24; ${trace.cause}`)}</div>`
+  const refused = !trace.accepted
+  element('#range-result').innerHTML = `<div data-rejected-value="${maliciousValue}" data-bit-width="${circuit.bits}" data-range-refused="${refused}">${refused
+    ? verdict('range-attack', 'reject', 'REJECTED', `${maliciousValue.toLocaleString('en-US')} ≥ 2^${circuit.bits}; ${trace.cause}`)
+    : verdict('range-attack', 'alarm', 'ADMITTED BY THE CIRCUIT', `${maliciousValue.toLocaleString('en-US')} ≥ 2^${circuit.bits} and preparation still returned ${trace.cause}`)}</div>`
 }
 
 function runTamperAttack(): void {
   const protocol = createPrio3Sum(SUM_MAXIMUM)
   const report = protocol.shard(CONTEXT, 125_000n)
   const trace = protocol.prepare(VERIFY_KEY, CONTEXT, tamperProofShare(report))
-  element('#tamper-result').innerHTML = verdict('reject', 'REJECTED', trace.cause)
+  const refused = !trace.accepted
+  element('#tamper-result').innerHTML = `<div data-tamper-refused="${refused}" data-tamper-cause="${trace.cause}">${refused
+    ? verdict('tamper-attack', 'reject', 'REJECTED', trace.cause)
+    : verdict('tamper-attack', 'alarm', 'ADMITTED WITH A FLIPPED PROOF SHARE', `preparation returned ${trace.cause} for a report whose proof share was changed`)}</div>`
 }
 
 function runNonceAttack(): void {
@@ -274,21 +279,31 @@ function runNonceAttack(): void {
   const replayAdmitted = registry.admit(report)
   const replayTrace = protocol.prepare(VERIFY_KEY, CONTEXT, report)
 
-  if (!firstTrace.outputShares || !replayTrace.outputShares) {
-    element('#nonce-result').innerHTML = verdict('alarm', 'FIXTURE FAILED', 'the honest report did not prepare')
-    return
+  const [firstLeader, firstHelper] = requireOutputShares(firstTrace, 'first submission')
+  const single = unshard([firstLeader, firstHelper], 1)
+
+  let vdafOutcome: string
+  let doubledAttribute = ''
+  if (replayTrace.accepted) {
+    const [replayLeader, replayHelper] = requireOutputShares(replayTrace, 'replay')
+    const doubled = unshard(
+      [
+        aggregateOutputShares([firstLeader, replayLeader]),
+        aggregateOutputShares([firstHelper, replayHelper]),
+      ],
+      2,
+    )
+    doubledAttribute = ` data-replayed-aggregate="${doubled}"`
+    vdafOutcome = verdict('replay-vdaf', 'alarm', 'PREPARATION ACCEPTED IT AGAIN', `the proofs in a replayed report are still correct, so the VDAF returns accepted a second time; the tally would move from ${money(single)} to ${money(doubled)} on one measurement`)
+  } else {
+    vdafOutcome = verdict('replay-vdaf', 'pass', 'PREPARATION REFUSED THE REPLAY', `the VDAF turned the duplicate away on its own: ${replayTrace.cause}`)
   }
-  const single = unshard([firstTrace.outputShares[0], firstTrace.outputShares[1]], 1)
-  const doubled = unshard(
-    [
-      aggregateOutputShares([firstTrace.outputShares[0], replayTrace.outputShares[0]]),
-      aggregateOutputShares([firstTrace.outputShares[1], replayTrace.outputShares[1]]),
-    ],
-    2,
-  )
-  element('#nonce-result').innerHTML = `<div data-replay="true" data-first-admitted="${firstAdmitted}" data-guard-admitted="${replayAdmitted}" data-vdaf-replay-accepted="${replayTrace.accepted}" data-single-aggregate="${single}" data-replayed-aggregate="${doubled}">
-    ${verdict('alarm', 'PREPARATION ACCEPTED IT AGAIN', `the proofs in a replayed report are still correct, so the VDAF returns accepted a second time; the tally would move from ${money(single)} to ${money(doubled)} on one measurement`)}
-    ${verdict('reject', 'REJECTED BY INTAKE', `nonce ${nonceKey.slice(0, 16)}… was already seen; this lab's registry refuses the duplicate before preparation`)}
+
+  element('#nonce-result').innerHTML = `<div data-replay="true" data-first-admitted="${firstAdmitted}" data-guard-admitted="${replayAdmitted}" data-vdaf-replay-accepted="${replayTrace.accepted}" data-single-aggregate="${single}"${doubledAttribute}>
+    ${vdafOutcome}
+    ${replayAdmitted
+      ? verdict('replay-intake', 'alarm', 'ADMITTED BY INTAKE', `nonce ${nonceKey.slice(0, 16)}… had already been recorded and the registry let it through anyway`)
+      : verdict('replay-intake', 'reject', 'REJECTED BY INTAKE', `nonce ${nonceKey.slice(0, 16)}… was already seen; this lab's registry refuses the duplicate before preparation`)}
     <p>Replay is not something the proof can catch. It is refused outside the VDAF, by the layer that remembers nonces.</p>
   </div>`
 }
@@ -300,9 +315,13 @@ function toggleCollusion(checked: boolean): void {
     return
   }
   const protocol = createPrio3Sum(SUM_MAXIMUM)
-  const report = protocol.shard(CONTEXT, 125_000n)
+  const input = 125_000n
+  const report = protocol.shard(CONTEXT, input)
   const result = collude(protocol, CONTEXT, report)
-  root.innerHTML = `<div class="collusion-reveal">${verdict('alarm', 'BROKEN: INPUT REVEALED', `both shares reconstruct ${money(result.reconstructed)}`)}<div class="share-pair"><code>A: ${compactFields(result.shares[0])}</code><code>B: ${compactFields(result.shares[1])}</code></div><p>What this is not: security against both aggregators colluding.</p></div>`
+  const revealed = result.reconstructed === input
+  root.innerHTML = `<div class="collusion-reveal" data-collusion-input="${input}" data-collusion-reconstructed="${result.reconstructed}">${revealed
+    ? verdict('collusion', 'alarm', 'BROKEN: INPUT REVEALED', `both shares reconstruct ${money(result.reconstructed)}`)
+    : verdict('collusion', 'pass', 'INPUT NOT RECONSTRUCTED', `adding both shares gave ${money(result.reconstructed)}, which is not the ${money(input)} that was sharded`)}<div class="share-pair"><code>A: ${compactFields(result.shares[0])}</code><code>B: ${compactFields(result.shares[1])}</code></div><p>What this is not: security against both aggregators colluding.</p></div>`
 }
 
 function runValidLieFixture(): void {
@@ -311,20 +330,27 @@ function runValidLieFixture(): void {
     ...person,
     trace: protocol.prepare(VERIFY_KEY, CONTEXT, protocol.shard(CONTEXT, person.reported)),
   }))
-  const leader = aggregateOutputShares(fixture.map((item) => item.trace.outputShares![0]))
-  const helper = aggregateOutputShares(fixture.map((item) => item.trace.outputShares![1]))
+  const leader = aggregateOutputShares(fixture.map((item) => requireOutputShares(item.trace, item.name)[0]))
+  const helper = aggregateOutputShares(fixture.map((item) => requireOutputShares(item.trace, item.name)[1]))
   const reportedTotal = unshard([leader, helper], fixture.length)
   const truthTotal = fixture.reduce((sum, item) => sum + item.sealedTruth, 0n)
   const allValid = fixture.every((item) => item.trace.accepted)
-  element('#lie-result').innerHTML = `<div class="fixture-result" data-negative-lie="true">${verdict('alarm', 'VALID - AND FALSE', 'every Prio3 check passes; the reported total does not match sealed truth')}<div class="fixture-ledger">${fixture.map((item) => `<div><span>${item.name}</span><b class="valid-word">${item.trace.accepted ? 'VALID' : 'REJECTED'}</b><code>reported ${money(item.reported)}</code><code>sealed ${money(item.sealedTruth)}</code></div>`).join('')}</div><p>Protocol aggregate <strong data-lie-aggregate="${reportedTotal}">${money(reportedTotal)}</strong>; sealed plain sum <strong data-lie-truth="${truthTotal}">${money(truthTotal)}</strong>.</p><p data-all-valid="${allValid}">Prio3 checks that a report is well-formed, in range, and correctly shared. It cannot check that a report is true; a valid-looking lie passes every check and moves the total.</p></div>`
+  const lieStands = allValid && reportedTotal !== truthTotal
+  element('#lie-result').innerHTML = `<div class="fixture-result" data-negative-lie="true">${lieStands
+    ? verdict('valid-lie', 'alarm', 'VALID - AND FALSE', 'every Prio3 check passes; the reported total does not match sealed truth')
+    : verdict('valid-lie', 'pass', 'THE FIXTURE DID NOT CARRY A LIE', allValid ? 'every check passed and the reported total equals the sealed truth' : 'at least one fixture report was refused, so no valid lie entered the total')}<div class="fixture-ledger">${fixture.map((item) => `<div><span>${item.name}</span><b class="valid-word" data-verdict="valid-lie-row">${item.trace.accepted ? 'VALID' : 'REJECTED'}</b><code>reported ${money(item.reported)}</code><code>sealed ${money(item.sealedTruth)}</code></div>`).join('')}</div><p>Protocol aggregate <strong data-lie-aggregate="${reportedTotal}">${money(reportedTotal)}</strong>; sealed plain sum <strong data-lie-truth="${truthTotal}">${money(truthTotal)}</strong>.</p><p data-all-valid="${allValid}">Prio3 checks that a report is well-formed, in range, and correctly shared. It cannot check that a report is true; a valid-looking lie passes every check and moves the total.</p></div>`
 }
 
 function runSingleFixture(): void {
   const value = 119_800n
   const protocol = createPrio3Sum(SUM_MAXIMUM)
   const trace = protocol.prepare(VERIFY_KEY, CONTEXT, protocol.shard(CONTEXT, value))
-  const total = unshard([trace.outputShares![0], trace.outputShares![1]], 1)
-  element('#single-result').innerHTML = `<div class="fixture-result" data-negative-single="true">${verdict('alarm', 'SHARES PRIVATE - AND THE TOTAL IS THE INPUT', `one valid report produces ${money(total)}`)}<p data-single-input="${value}" data-single-aggregate="${total}">Prio3 does not provide differential privacy; with one report, the aggregate is the report.</p></div>`
+  const [leader, helper] = requireOutputShares(trace, 'one-report fixture')
+  const total = unshard([leader, helper], 1)
+  const exposes = total === value
+  element('#single-result').innerHTML = `<div class="fixture-result" data-negative-single="true">${exposes
+    ? verdict('single-report', 'alarm', 'SHARES PRIVATE - AND THE TOTAL IS THE INPUT', `one valid report produces ${money(total)}`)
+    : verdict('single-report', 'pass', 'THE TOTAL IS NOT THE INPUT', `one report of ${money(value)} produced an aggregate of ${money(total)}`)}<p data-single-input="${value}" data-single-aggregate="${total}">Prio3 does not provide differential privacy; with one report, the aggregate is the report.</p></div>`
 }
 
 function runRuntimeKats(): void {
@@ -342,7 +368,8 @@ function runRuntimeKats(): void {
     ['Prio3Count_0 verifier shares', countVerifierMatches],
     ['Prio3Sum_0 verifier shares', sumVerifierMatches],
   ] as const
-  element('#kat-panel').innerHTML = `<div class="kat-summary"><span data-kat-count="${rows.length}">${rows.length} official KAT checks</span><strong>${rows.every(([, passed]) => passed) ? 'ALL MATCH' : 'MISMATCH'}</strong></div><div class="table-wrap" role="region" aria-label="Known-answer test results" tabindex="0"><table><thead><tr><th scope="col">Pinned fixture</th><th scope="col">Source</th><th scope="col">Result</th></tr></thead><tbody>${rows.map(([name, passed]) => `<tr><td>${name}</td><td>draft-22 reference vectors</td><td><span class="kat-status ${passed ? 'pass' : 'fail'}">${passed ? 'MATCH' : 'MISMATCH'}</span></td></tr>`).join('')}</tbody></table></div><p class="vector-meta">draft-irtf-cfrg-vdaf-22 · 14 August 2026 · Field64 · TurboSHAKE128(D=1) · one proof per report</p>`
+  const allMatch = rows.every(([, passed]) => passed)
+  element('#kat-panel').innerHTML = `<div class="kat-summary"><span data-kat-count="${rows.length}">${rows.length} official KAT checks</span><strong data-verdict="kat-summary" data-kat-all-match="${allMatch}">${allMatch ? 'ALL MATCH' : 'MISMATCH'}</strong></div><div class="table-wrap" role="region" aria-label="Known-answer test results" tabindex="0"><table><thead><tr><th scope="col">Pinned fixture</th><th scope="col">Source</th><th scope="col">Result</th></tr></thead><tbody>${rows.map(([name, passed]) => `<tr><td>${name}</td><td>draft-22 reference vectors</td><td><span class="kat-status ${passed ? 'pass' : 'fail'}" data-verdict="kat-row">${passed ? 'MATCH' : 'MISMATCH'}</span></td></tr>`).join('')}</tbody></table></div><p class="vector-meta">draft-irtf-cfrg-vdaf-22 · 14 August 2026 · Field64 · TurboSHAKE128(D=1) · one proof per report</p>`
 }
 
 function wireTabs(): void {

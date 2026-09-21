@@ -42,8 +42,29 @@ jobs:
         with:
           path: dist
 
+  # Template §4.1c. Coverage is derived by walking the rendered page: every rendered
+  # [data-verdict] marker must have a recorded mutation, and verdict wording or verdict
+  # styling rendered outside a marker fails. Its own name makes it nameable as a required
+  # status check; `needs:` below is what actually stops an uncovered verdict from shipping.
+  verdict-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Marker registry and mutation recipes
+        run: npx vitest run src/ui/verdict-registry.test.ts
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Rendered-verdict coverage gate
+        run: npm run test:verdicts
+
   deploy:
-    needs: build
+    needs: [build, verdict-coverage]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -55,7 +76,7 @@ jobs:
         uses: actions/deploy-pages@v5
 
   dependabot-auto-merge:
-    needs: build
+    needs: [build, verdict-coverage]
     if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15

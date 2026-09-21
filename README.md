@@ -105,19 +105,56 @@ npm test
 npm run build
 npx playwright install --with-deps chromium
 npm run test:a11y
+npm run test:verdicts
 ```
 
-The correctness suite currently contains 17 Vitest tests. It includes the official
+The correctness suite currently contains 32 Vitest tests. It includes the official
 `XofTurboShake128`, `Prio3Count_0`, and `Prio3Sum_0` known-answer fixtures, exact serialized verifier
-shares, malformed-input rejection, proof-share tampering, aggregation, Field64 boundaries, and the
+shares, malformed-input rejection, proof-share tampering, aggregation, Field64 boundaries, the
 replay behaviour: that preparation accepts a replayed report a second time, that the unrefused replay
-doubles the aggregate, and that the registry admits a nonce exactly once.
+doubles the aggregate, and that the registry admits a nonce exactly once - and the verdict marker
+registry described below.
 
-The Playwright gate contains 11 tests. Two drive every reachable exhibit at desktop and 380px with
+The Playwright gate contains 19 tests. Two drive every reachable exhibit at desktop and 380px with
 reduced motion, axe WCAG 2.1 A/AA, independent text-contrast and control-boundary oracles, and reflow
-checks. Nine claims tests independently recompute the displayed verifier sum, payroll aggregate,
-range boundary, KAT count, retirement behavior, the replayed-versus-single aggregate, and both
-negative claims.
+checks. Fourteen claims tests independently recompute the displayed verifier sum, payroll aggregate,
+range boundary, KAT count and summary word, retirement behavior, the replayed-versus-single
+aggregate, the preparation verdict against the displayed combined verifier, the tally match word
+against the two displayed totals, the gadget-consistency refusal, the colluded reconstruction, and
+both negative claims. Three verdict-coverage tests are described below.
+
+## Every Verdict Is Computed, and Every Verdict Is Mutated
+
+Nothing this page prints as an outcome is a fixed string. Each rendered verdict branches on a value
+the page computed, and carries a `data-verdict` marker naming it:
+
+`preparation` · `tally-match` · `range-attack` · `tamper-attack` · `replay-vdaf` · `replay-intake` ·
+`collusion` · `valid-lie` · `valid-lie-row` · `single-report` · `kat-summary` · `kat-row`
+
+Coverage is derived by walking the rendered page, not from a list kept by hand. `e2e/verdicts.spec.ts`
+drives every exhibit and fails when:
+
+- a rendered marker has no recorded mutation in `e2e/verdict-mutations.json`, or a recorded mutation
+  names a marker the page no longer renders;
+- verdict wording or verdict styling is rendered **outside** a marker - the shape a raw banner takes
+  when someone adds one later. The spec injects exactly that banner, with and without the house
+  styling, and fails if the audit does not catch it.
+
+Each of the twelve markers has a §4.1c mutation recorded with the recipe that produces it:
+
+```bash
+node tools/verdict-mutation.mjs list
+node tools/verdict-mutation.mjs apply <marker>    # forces that one verdict to the wrong answer
+CI=1 npx playwright test                          # the named test must fail on its own assertion
+node tools/verdict-mutation.mjs restore <marker>
+```
+
+`CI=1` matters: it turns off `reuseExistingServer`, so the suite cannot be served an unmutated
+checkout by a server left running from an earlier pass.
+
+The `verdict-coverage` job in `.github/workflows/deploy.yml` runs this gate as its own required
+check, and `deploy` declares `needs: [build, verdict-coverage]`, so an uncovered verdict cannot
+reach the live site even on a direct push to `main`.
 
 ## Performance
 

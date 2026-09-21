@@ -152,6 +152,7 @@ input[type="number"] { width: 100%; min-height: 44px; border: 1px solid var(--co
 .sum-comparison strong { display: block; font-size: 1.1rem; }
 .equality { color: var(--accent-text) !important; font-size: 1.3rem !important; }
 .byte-match { grid-column: 1 / -1; margin: .3rem 0 0; color: var(--accent-text); font-family: var(--mono); font-size: .72rem; }
+.byte-match.mismatch, .equality.mismatch { color: var(--danger-text) !important; }
 
 .attack-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 .attack-item { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; padding: 1rem; border-top: 3px solid var(--danger); background-color: var(--surface); }

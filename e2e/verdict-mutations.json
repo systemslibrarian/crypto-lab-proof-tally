@@ -1,0 +1,86 @@
+[
+  {
+    "marker": "preparation",
+    "file": "src/ui/app.ts",
+    "find": "${trace.accepted\n      ? verdict('preparation'",
+    "replace": "${!trace.accepted\n      ? verdict('preparation'",
+    "kills": "claims.spec.ts - the preparation verdict follows the displayed combined verifier"
+  },
+  {
+    "marker": "tally-match",
+    "file": "src/ui/app.ts",
+    "find": "const agrees = aggregate === plainSum",
+    "replace": "const agrees = aggregate !== plainSum",
+    "kills": "claims.spec.ts - the tally match word follows the two displayed totals"
+  },
+  {
+    "marker": "range-attack",
+    "file": "src/ui/app.ts",
+    "find": "const refused = !trace.accepted\n  element('#range-result')",
+    "replace": "const refused = trace.accepted\n  element('#range-result')",
+    "kills": "claims.spec.ts - the range rejection is outside the displayed bit width"
+  },
+  {
+    "marker": "tamper-attack",
+    "file": "src/ui/app.ts",
+    "find": "const refused = !trace.accepted\n  element('#tamper-result')",
+    "replace": "const refused = trace.accepted\n  element('#tamper-result')",
+    "kills": "claims.spec.ts - a flipped proof share fails the gadget-consistency check"
+  },
+  {
+    "marker": "replay-vdaf",
+    "file": "src/ui/app.ts",
+    "find": "const replayTrace = protocol.prepare(VERIFY_KEY, CONTEXT, report)",
+    "replace": "const replayTrace = protocol.prepare(VERIFY_KEY, CONTEXT, tamperProofShare(report))",
+    "kills": "claims.spec.ts - a replayed report re-verifies and only the intake registry stops it"
+  },
+  {
+    "marker": "replay-intake",
+    "file": "src/prio3/replay.ts",
+    "find": "if (this.seen.has(key)) return false",
+    "replace": "if (this.seen.has(key)) return true",
+    "kills": "claims.spec.ts - a replayed report re-verifies and only the intake registry stops it"
+  },
+  {
+    "marker": "collusion",
+    "file": "src/attack/collude.ts",
+    "find": "addVectors(shares[0], shares[1])",
+    "replace": "addVectors(shares[0], shares[0])",
+    "kills": "claims.spec.ts - colluding aggregators reconstruct the input that was sharded"
+  },
+  {
+    "marker": "valid-lie",
+    "file": "src/ui/app.ts",
+    "find": "const lieStands = allValid && reportedTotal !== truthTotal",
+    "replace": "const lieStands = allValid && reportedTotal === truthTotal",
+    "kills": "claims.spec.ts - a well-formed lie passes every check and still changes the truth"
+  },
+  {
+    "marker": "valid-lie-row",
+    "file": "src/ui/app.ts",
+    "find": "data-verdict=\"valid-lie-row\">${item.trace.accepted ?",
+    "replace": "data-verdict=\"valid-lie-row\">${!item.trace.accepted ?",
+    "kills": "claims.spec.ts - a well-formed lie passes every check and still changes the truth"
+  },
+  {
+    "marker": "single-report",
+    "file": "src/ui/app.ts",
+    "find": "const exposes = total === value",
+    "replace": "const exposes = total !== value",
+    "kills": "claims.spec.ts - one accepted report exposes itself through the aggregate"
+  },
+  {
+    "marker": "kat-summary",
+    "file": "src/ui/app.ts",
+    "find": "const allMatch = rows.every(([, passed]) => passed)",
+    "replace": "const allMatch = !rows.every(([, passed]) => passed)",
+    "kills": "claims.spec.ts - the KAT summary word follows the rendered rows"
+  },
+  {
+    "marker": "kat-row",
+    "file": "src/ui/app.ts",
+    "find": "<span class=\"kat-status ${passed ? 'pass' : 'fail'}\" data-verdict=\"kat-row\">${passed ? 'MATCH' : 'MISMATCH'}</span>",
+    "replace": "<span class=\"kat-status ${!passed ? 'pass' : 'fail'}\" data-verdict=\"kat-row\">${!passed ? 'MATCH' : 'MISMATCH'}</span>",
+    "kills": "claims.spec.ts - the KAT counter agrees with the rendered matching rows"
+  }
+]

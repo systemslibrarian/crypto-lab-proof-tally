@@ -50,12 +50,12 @@ test('changing an input retires a verdict while a no-op preserves it', async ({ 
   const input = page.getByLabel('Salary measurement')
   await page.getByRole('button', { name: 'Shard report' }).click()
   await page.getByRole('button', { name: 'Combine verifier shares' }).click()
-  await expect(page.locator('#mechanism .verdict')).toContainText('VALID')
+  await expect(page.locator('#mechanism [data-verdict]')).toHaveCount(1)
   await input.fill('125000')
-  await expect(page.locator('#mechanism .verdict')).toContainText('VALID')
+  await expect(page.locator('#mechanism [data-verdict]')).toHaveCount(1)
   await expect(page.locator('#retirement-status')).not.toContainText('retired')
   await input.fill('125001')
-  await expect(page.locator('#mechanism .verdict')).toHaveCount(0)
+  await expect(page.locator('#mechanism [data-verdict]')).toHaveCount(0)
   await expect(page.locator('#retirement-status')).toContainText('retired')
 })
 
@@ -103,4 +103,47 @@ test('a replayed report re-verifies and only the intake registry stops it', asyn
   expect(doubled).toBe(single * 2n)
   await expect(result).toContainText('PREPARATION ACCEPTED IT AGAIN')
   await expect(result).toContainText('REJECTED BY INTAKE')
+})
+
+test('the preparation verdict follows the displayed combined verifier', async ({ page }) => {
+  await page.getByRole('button', { name: 'Shard report' }).click()
+  await page.getByRole('button', { name: 'Combine verifier shares' }).click()
+  const combined = BigInt(await page.locator('[data-combined-verifier]').getAttribute('data-combined-verifier') ?? '')
+  const rendered = await page.locator('[data-verdict="preparation"]').innerText()
+  expect(rendered, `combined verifier ${combined} against the rendered verdict`).toContain(combined === 0n ? 'VALID' : 'REJECTED')
+})
+
+test('the tally match word follows the two displayed totals', async ({ page }) => {
+  await page.getByRole('button', { name: 'Load 12-person payroll' }).click()
+  const aggregate = BigInt(await page.locator('[data-aggregate]').getAttribute('data-aggregate') ?? '')
+  const plainSum = BigInt(await page.locator('[data-plain-sum]').getAttribute('data-plain-sum') ?? '')
+  const word = await page.locator('p[data-verdict="tally-match"]').innerText()
+  expect(word).toContain(aggregate === plainSum ? 'MATCH: Field64 byte equality' : 'MISMATCH')
+  await expect(page.locator('span[data-verdict="tally-match"]')).toHaveText(aggregate === plainSum ? '=' : '!=')
+})
+
+test('a flipped proof share fails the gadget-consistency check', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Break it' }).click()
+  await page.getByRole('button', { name: 'Flip proof share' }).click()
+  const result = page.locator('[data-tamper-cause]')
+  await expect(result).toHaveAttribute('data-tamper-cause', 'gadget consistency failed')
+  await expect(result.locator('[data-verdict="tamper-attack"]')).toContainText('REJECTED')
+})
+
+test('colluding aggregators reconstruct the input that was sharded', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Break it' }).click()
+  await page.getByLabel('Collude the aggregators').check()
+  const reveal = page.locator('[data-collusion-input]')
+  const input = BigInt(await reveal.getAttribute('data-collusion-input') ?? '')
+  const reconstructed = BigInt(await reveal.getAttribute('data-collusion-reconstructed') ?? '')
+  expect(reconstructed).toBe(input)
+  await expect(reveal.locator('[data-verdict="collusion"]')).toContainText('BROKEN: INPUT REVEALED')
+})
+
+test('the KAT summary word follows the rendered rows', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Limits & vectors' }).click()
+  const rows = await page.locator('[data-verdict="kat-row"]').allInnerTexts()
+  expect(rows.length).toBeGreaterThan(0)
+  const everyRowMatched = rows.every((row) => row.trim() === 'MATCH')
+  await expect(page.locator('[data-verdict="kat-summary"]')).toHaveText(everyRowMatched ? 'ALL MATCH' : 'MISMATCH')
 })

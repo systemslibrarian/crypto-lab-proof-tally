@@ -59,7 +59,7 @@ export async function driveAllStates(page: Page, viewportLabel: string): Promise
   await scan(page, `${viewportLabel}: sharded`)
 
   await page.getByRole('button', { name: 'Combine verifier shares' }).click()
-  await expect(page.locator('#mechanism .verdict')).toContainText('VALID')
+  await expect(page.locator('[data-verdict="preparation"]')).toBeVisible()
   await scan(page, `${viewportLabel}: prepared`)
 
   await page.getByRole('button', { name: 'Add accepted report' }).click()
@@ -75,13 +75,13 @@ export async function driveAllStates(page: Page, viewportLabel: string): Promise
   await page.getByRole('button', { name: 'Flip proof share' }).click()
   await page.getByRole('button', { name: 'Replay a report' }).click()
   await page.getByLabel('Collude the aggregators').check()
-  await expect(page.locator('#collusion-result')).toContainText('BROKEN: INPUT REVEALED')
+  await expect(page.locator('[data-verdict="collusion"]')).toBeVisible()
   await scan(page, `${viewportLabel}: attacks and collusion`)
 
   await page.getByRole('tab', { name: 'Limits & vectors' }).click()
   await page.getByRole('button', { name: 'Run valid-lie fixture' }).click()
   await page.getByRole('button', { name: 'Run one-report fixture' }).click()
   await page.getByText('Protocol scope and extension seams').click()
-  await expect(page.locator('[data-negative-lie]')).toContainText('VALID - AND FALSE')
+  await expect(page.locator('[data-verdict="valid-lie"]')).toBeVisible()
   await scan(page, `${viewportLabel}: negative claims and vectors`)
 }
