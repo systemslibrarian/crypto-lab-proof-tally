@@ -1,6 +1,8 @@
 [
   {
     "marker": "preparation",
+    "kind": "verdict",
+    "paints": "pass",
     "file": "src/ui/app.ts",
     "find": "${trace.accepted\n      ? verdict('preparation'",
     "replace": "${!trace.accepted\n      ? verdict('preparation'",
@@ -8,6 +10,8 @@
   },
   {
     "marker": "tally-match",
+    "kind": "verdict",
+    "paints": "pass",
     "file": "src/ui/app.ts",
     "find": "const agrees = aggregate === plainSum",
     "replace": "const agrees = aggregate !== plainSum",
@@ -15,6 +19,8 @@
   },
   {
     "marker": "range-attack",
+    "kind": "verdict",
+    "paints": "reject",
     "file": "src/ui/app.ts",
     "find": "const refused = !trace.accepted\n  element('#range-result')",
     "replace": "const refused = trace.accepted\n  element('#range-result')",
@@ -22,6 +28,8 @@
   },
   {
     "marker": "tamper-attack",
+    "kind": "verdict",
+    "paints": "reject",
     "file": "src/ui/app.ts",
     "find": "const refused = !trace.accepted\n  element('#tamper-result')",
     "replace": "const refused = trace.accepted\n  element('#tamper-result')",
@@ -29,6 +37,8 @@
   },
   {
     "marker": "replay-vdaf",
+    "kind": "verdict",
+    "paints": "alarm",
     "file": "src/ui/app.ts",
     "find": "const replayTrace = protocol.prepare(VERIFY_KEY, CONTEXT, report)",
     "replace": "const replayTrace = protocol.prepare(VERIFY_KEY, CONTEXT, tamperProofShare(report))",
@@ -36,6 +46,8 @@
   },
   {
     "marker": "replay-intake",
+    "kind": "verdict",
+    "paints": "reject",
     "file": "src/prio3/replay.ts",
     "find": "if (this.seen.has(key)) return false",
     "replace": "if (this.seen.has(key)) return true",
@@ -43,6 +55,8 @@
   },
   {
     "marker": "collusion",
+    "kind": "verdict",
+    "paints": "alarm",
     "file": "src/attack/collude.ts",
     "find": "addVectors(shares[0], shares[1])",
     "replace": "addVectors(shares[0], shares[0])",
@@ -50,6 +64,8 @@
   },
   {
     "marker": "valid-lie",
+    "kind": "verdict",
+    "paints": "alarm",
     "file": "src/ui/app.ts",
     "find": "const lieStands = allValid && reportedTotal !== truthTotal",
     "replace": "const lieStands = allValid && reportedTotal === truthTotal",
@@ -57,13 +73,17 @@
   },
   {
     "marker": "valid-lie-row",
+    "kind": "verdict",
+    "paints": "pass",
     "file": "src/ui/app.ts",
-    "find": "data-verdict=\"valid-lie-row\">${item.trace.accepted ?",
-    "replace": "data-verdict=\"valid-lie-row\">${!item.trace.accepted ?",
+    "find": "<b class=\"valid-word ${item.trace.accepted ? 'pass' : 'fail'}\"",
+    "replace": "<b class=\"valid-word ${!item.trace.accepted ? 'pass' : 'fail'}\"",
     "kills": "claims.spec.ts - a well-formed lie passes every check and still changes the truth"
   },
   {
     "marker": "single-report",
+    "kind": "verdict",
+    "paints": "alarm",
     "file": "src/ui/app.ts",
     "find": "const exposes = total === value",
     "replace": "const exposes = total !== value",
@@ -71,6 +91,8 @@
   },
   {
     "marker": "kat-summary",
+    "kind": "verdict",
+    "paints": "pass",
     "file": "src/ui/app.ts",
     "find": "const allMatch = rows.every(([, passed]) => passed)",
     "replace": "const allMatch = !rows.every(([, passed]) => passed)",
@@ -78,9 +100,195 @@
   },
   {
     "marker": "kat-row",
+    "kind": "verdict",
+    "paints": "pass",
     "file": "src/ui/app.ts",
-    "find": "<span class=\"kat-status ${passed ? 'pass' : 'fail'}\" data-verdict=\"kat-row\">${passed ? 'MATCH' : 'MISMATCH'}</span>",
-    "replace": "<span class=\"kat-status ${!passed ? 'pass' : 'fail'}\" data-verdict=\"kat-row\">${!passed ? 'MATCH' : 'MISMATCH'}</span>",
+    "find": "<span class=\"kat-status ${passed ? 'pass' : 'fail'}\"",
+    "replace": "<span class=\"kat-status ${!passed ? 'pass' : 'fail'}\"",
     "kills": "claims.spec.ts - the KAT counter agrees with the rendered matching rows"
+  },
+  {
+    "marker": "report-measurement",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('report-measurement', activeReport.measurement,",
+    "replace": "claim('report-measurement', activeReport.measurement + 1n,",
+    "kills": "claims.spec.ts - the sharded envelopes render the measurement and both input shares"
+  },
+  {
+    "marker": "leader-share",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('leader-share', leader.length,",
+    "replace": "claim('leader-share', leader.length + 1,",
+    "kills": "claims.spec.ts - the sharded envelopes render the measurement and both input shares"
+  },
+  {
+    "marker": "helper-share",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('helper-share', helper.length,",
+    "replace": "claim('helper-share', helper.length + 1,",
+    "kills": "claims.spec.ts - the sharded envelopes render the measurement and both input shares"
+  },
+  {
+    "marker": "verifier-a",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('verifier-a', trace.verifierShares[0].values[0],",
+    "replace": "claim('verifier-a', trace.verifierShares[1].values[0],",
+    "kills": "claims.spec.ts - the displayed verifier shares add to the displayed combined verifier"
+  },
+  {
+    "marker": "verifier-b",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('verifier-b', trace.verifierShares[1].values[0],",
+    "replace": "claim('verifier-b', trace.verifierShares[0].values[0],",
+    "kills": "claims.spec.ts - the displayed verifier shares add to the displayed combined verifier"
+  },
+  {
+    "marker": "combined-verifier",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('combined-verifier', trace.combinedVerifier[0],",
+    "replace": "claim('combined-verifier', trace.combinedVerifier[0] + 1n,",
+    "kills": "claims.spec.ts - the displayed verifier shares add to the displayed combined verifier"
+  },
+  {
+    "marker": "submitted-count",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('submitted-count', records.length, String(records.length))}</div><div class=\"tally-stat\"><span>ACCEPTED</span>${claim('accepted-count', accepted.length,",
+    "replace": "claim('submitted-count', records.length + 1, String(records.length + 1))}</div><div class=\"tally-stat\"><span>ACCEPTED</span>${claim('accepted-count', accepted.length,",
+    "kills": "claims.spec.ts - the tally is independently recomputable from accepted values"
+  },
+  {
+    "marker": "accepted-count",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('accepted-count', accepted.length, String(accepted.length))",
+    "replace": "claim('accepted-count', accepted.length + 1, String(accepted.length + 1))",
+    "kills": "claims.spec.ts - the tally is independently recomputable from accepted values"
+  },
+  {
+    "marker": "rejected-count",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('rejected-count', rejected, String(rejected))}</div><div class=\"sum-comparison\">",
+    "replace": "claim('rejected-count', rejected + 1, String(rejected + 1))}</div><div class=\"sum-comparison\">",
+    "kills": "claims.spec.ts - the tally is independently recomputable from accepted values"
+  },
+  {
+    "marker": "protocol-aggregate",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('protocol-aggregate', aggregate,",
+    "replace": "claim('protocol-aggregate', aggregate + 1n,",
+    "kills": "claims.spec.ts - the tally is independently recomputable from accepted values"
+  },
+  {
+    "marker": "plain-sum",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('plain-sum', plainSum,",
+    "replace": "claim('plain-sum', plainSum + 1n,",
+    "kills": "claims.spec.ts - the tally is independently recomputable from accepted values"
+  },
+  {
+    "marker": "collusion-share-a",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('collusion-share-a', result.shares[0].length,",
+    "replace": "claim('collusion-share-a', result.shares[0].length + 1,",
+    "kills": "claims.spec.ts - colluding aggregators reconstruct the input that was sharded"
+  },
+  {
+    "marker": "collusion-share-b",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('collusion-share-b', result.shares[1].length,",
+    "replace": "claim('collusion-share-b', result.shares[1].length + 1,",
+    "kills": "claims.spec.ts - colluding aggregators reconstruct the input that was sharded"
+  },
+  {
+    "marker": "lie-row-reported",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('lie-row-reported', item.reported,",
+    "replace": "claim('lie-row-reported', item.reported + 1n,",
+    "kills": "claims.spec.ts - a well-formed lie passes every check and still changes the truth"
+  },
+  {
+    "marker": "lie-row-sealed",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('lie-row-sealed', item.sealedTruth,",
+    "replace": "claim('lie-row-sealed', item.sealedTruth + 1n,",
+    "kills": "claims.spec.ts - a well-formed lie passes every check and still changes the truth"
+  },
+  {
+    "marker": "lie-aggregate",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('lie-aggregate', reportedTotal,",
+    "replace": "claim('lie-aggregate', reportedTotal + 1n,",
+    "kills": "claims.spec.ts - a well-formed lie passes every check and still changes the truth"
+  },
+  {
+    "marker": "lie-truth",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('lie-truth', truthTotal,",
+    "replace": "claim('lie-truth', truthTotal + 1n,",
+    "kills": "claims.spec.ts - a well-formed lie passes every check and still changes the truth"
+  },
+  {
+    "marker": "single-input",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('single-input', value,",
+    "replace": "claim('single-input', value + 1n,",
+    "kills": "claims.spec.ts - one accepted report exposes itself through the aggregate"
+  },
+  {
+    "marker": "single-aggregate",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('single-aggregate', total,",
+    "replace": "claim('single-aggregate', total + 1n,",
+    "kills": "claims.spec.ts - one accepted report exposes itself through the aggregate"
+  },
+  {
+    "marker": "kat-count",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('kat-count', rows.length,",
+    "replace": "claim('kat-count', rows.length + 1,",
+    "kills": "claims.spec.ts - the KAT counter agrees with the rendered matching rows"
+  },
+  {
+    "marker": "replay-contribution",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "claim('replay-contribution', value,",
+    "replace": "claim('replay-contribution', value + 1n,",
+    "kills": "claims.spec.ts - a replayed report re-verifies and only the intake registry stops it"
+  },
+  {
+    "marker": "replay-total",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "[aggregateOutputShares(shares.map(([leader]) => leader)), aggregateOutputShares(shares.map(([, helper]) => helper))]",
+    "replace": "[aggregateOutputShares(shares.slice(0, 1).map(([leader]) => leader)), aggregateOutputShares(shares.slice(0, 1).map(([, helper]) => helper))]",
+    "kills": "claims.spec.ts - a replayed report re-verifies and only the intake registry stops it"
+  },
+  {
+    "marker": "replay-tally-before",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "const single = contributions[0]",
+    "replace": "const single = contributions[0] + 999n",
+    "kills": "claims.spec.ts - a replayed report re-verifies and only the intake registry stops it"
   }
 ]

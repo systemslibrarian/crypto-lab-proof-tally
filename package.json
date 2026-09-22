@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:a11y": "playwright test",
-    "test:verdicts": "playwright test e2e/verdicts.spec.ts"
+    "test:verdicts": "playwright test e2e/claims.spec.ts e2e/verdicts.spec.ts",
+    "test:kills": "node tools/verdict-kill.mjs verify"
   },
   "dependencies": {
     "@noble/hashes": "2.4.0",

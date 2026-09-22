@@ -63,11 +63,11 @@ export async function driveAllStates(page: Page, viewportLabel: string): Promise
   await scan(page, `${viewportLabel}: prepared`)
 
   await page.getByRole('button', { name: 'Add accepted report' }).click()
-  await expect(page.locator('[data-aggregate]')).toContainText('$125,000')
+  await expect(page.locator('[data-claim="protocol-aggregate"]')).toContainText('$125,000')
   await scan(page, `${viewportLabel}: collected`)
 
   await page.getByRole('button', { name: 'Load 12-person payroll' }).click()
-  await expect(page.locator('[data-submitted-count]')).toHaveText('12')
+  await expect(page.locator('[data-claim="submitted-count"]')).toHaveText('12')
   await scan(page, `${viewportLabel}: payroll`)
 
   await page.getByRole('tab', { name: 'Break it' }).click()
