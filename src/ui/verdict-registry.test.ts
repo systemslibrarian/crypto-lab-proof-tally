@@ -17,6 +17,7 @@ const ROOT = new URL('../../', import.meta.url).pathname
 const REGISTRY = JSON.parse(readFileSync(join(ROOT, 'e2e/verdict-mutations.json'), 'utf8')) as {
   marker: string
   kind: 'verdict' | 'claim'
+  paints?: string
   file: string
   find: string
   replace: string
@@ -70,6 +71,20 @@ describe('mutation recipes', () => {
 
   it('gives every record a known kind', () => {
     expect(REGISTRY.filter((entry) => entry.kind !== 'verdict' && entry.kind !== 'claim')).toEqual([])
+  })
+
+  /**
+   * `paints` is the state the marker shows on a healthy page, and e2e/verdict-audit.ts
+   * compares it to the state the killing test HANDS expectVerdict(). Without it a test can
+   * read the state off the page and assert it back, which passes under every mutation. It
+   * is required of every verdict and of no measurement: a measurement's expected value is
+   * derived per run, and pinning one here would put back the literal the derived oracle
+   * exists to remove.
+   */
+  it('pins the healthy state of every verdict, and of nothing else', () => {
+    const states = ['pass', 'reject', 'alarm']
+    expect(REGISTRY.filter((entry) => entry.kind === 'verdict' && !states.includes(entry.paints ?? '')).map((entry) => entry.marker)).toEqual([])
+    expect(REGISTRY.filter((entry) => entry.kind === 'claim' && entry.paints !== undefined).map((entry) => entry.marker)).toEqual([])
   })
 
   it.each(REGISTRY)('keeps the recorded mutation for $marker applicable', (entry) => {

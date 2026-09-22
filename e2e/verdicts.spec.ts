@@ -4,9 +4,12 @@ import {
   coverageViolations,
   driveEveryState,
   helperViolations,
+  killedBy,
+  observationViolations,
   recordedMutations,
   testBody,
 } from './verdict-audit'
+import type { Observation } from './verdict-observations'
 
 test('every verdict and measurement the page renders has a recorded mutation, and every recorded mutation still renders', async ({ page }) => {
   const rendered = await driveEveryState(page)
@@ -119,4 +122,62 @@ test('somewhere else', async ({ page }) => {
   // And a mutation naming a test that no longer exists is a violation, not a pass.
   expect(helperViolations([{ ...preparation, kills: 'claims.spec.ts - a test that was renamed' }], sources))
     .toEqual(['preparation: claims.spec.ts has no test called "a test that was renamed"'])
+})
+
+/**
+ * The runtime half of rule 4, proved against synthetic observation records rather than by
+ * trusting that the real ones happen to be right. The three shapes below are the three
+ * ways every lab in this lane implemented "the kill goes through the helper" as a source
+ * scan and had it defeated: the call is still in the file in all three, and in none of
+ * them did anything check the marker.
+ *
+ * The live assertion runs in globalTeardown, after every worker has finished, because that
+ * is the only place the whole run's record exists.
+ */
+test('the coverage check catches a kill the run never actually executed', () => {
+  const recorded = recordedMutations()
+  const entry = recorded.find((item) => item.marker === 'tamper-attack')
+  expect(entry, 'tamper-attack is recorded, so this test is checking something').toBeDefined()
+  if (entry === undefined) return
+  const { file, title, helper } = killedBy(entry)
+  const ran = (overrides: Partial<Observation> = {}): Observation => ({
+    run: 'synthetic',
+    file,
+    title,
+    marker: entry.marker,
+    helper,
+    expected: { text: 'REJECTED', state: 'reject' },
+    ...overrides,
+  })
+  const elsewhere = ran({ marker: 'preparation', title: 'the preparation verdict follows the displayed combined verifier', expected: { text: 'VALID', state: 'pass' } })
+
+  // The shape a real run produces: entered, in the named test, on the named marker.
+  expect(observationViolations([entry], [ran()])).toEqual([])
+
+  // 1. Commented out, or in dead code. The file still contains the call; nothing ran it.
+  expect(observationViolations([entry], [elsewhere])).toEqual([
+    `tamper-attack: expectVerdict(page, 'tamper-attack', …) never RAN inside "a flipped proof share fails the gadget-consistency check". claims.spec.ts may well contain that call — commented out, in dead code, or in a neighbouring test all read the same to a source scan — but nothing executed it, so this recorded kill checked nothing.`,
+  ])
+
+  // 2. Executed, but handed the page's own reading. That call passes under every mutation,
+  //    because its expectation is whatever the page happens to say.
+  expect(observationViolations([entry], [ran({ expected: { text: 'ADMITTED WITH A FLIPPED PROOF SHARE', state: 'alarm' } })])).toEqual([
+    `tamper-attack: "a flipped proof share fails the gadget-consistency check" handed expectVerdict() state "alarm" where a healthy page paints "reject". An expectation that moves with the page was read OFF the page, so the call runs, passes under any mutation, and checks nothing.`,
+  ])
+
+  // 3. Satisfied from a neighbouring test in the same file.
+  expect(observationViolations([entry], [ran({ title: 'colluding aggregators reconstruct the input that was sharded' }), elsewhere])).toHaveLength(1)
+
+  // A run that observed nothing at all is refused, not reported clean.
+  expect(observationViolations(recorded, [])).toHaveLength(1)
+  expect(observationViolations(recorded, [])[0]).toContain('must not be read as having judged it')
+
+  // Every recorded measurement is exempt from the state pin, and says so by having none.
+  expect(observationViolations(
+    recorded.filter((item) => item.kind === 'claim'),
+    recorded.filter((item) => item.kind === 'claim').map((item) => {
+      const target = killedBy(item)
+      return { run: 'synthetic', file: target.file, title: target.title, marker: item.marker, helper: target.helper, expected: { value: 'whatever the page said', text: 'whatever the page said' } }
+    }),
+  )).toEqual([])
 })

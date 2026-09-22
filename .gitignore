@@ -10,3 +10,6 @@ coverage/
 template.md
 _MASTER-TEMPLATE.md
 CRYPTO-LAB-TEMPLATE.md
+
+# The run-scoped record of which assertions executed. Rebuilt by every run.
+.verdict-run/

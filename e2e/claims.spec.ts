@@ -181,10 +181,19 @@ test('a replayed report re-verifies and only the intake registry stops it', asyn
   // the spec. The rendered sentence is worded to claim only that much.
   const contributions = await claimValues(page, 'replay-contribution')
   expect(contributions, 'one contribution per submission preparation accepted').toHaveLength(2)
-  const total = await claimValue(page, 'replay-total')
+  const totals = await claimValues(page, 'replay-total')
+  expect(totals, 'the ledger states the total and the verdict quotes it; both are the same claim').toHaveLength(2)
+  const total = totals[0]
+  expect(totals[1], 'the figure the verdict quotes is the total the ledger states').toBe(total)
   expect(total).toBe(contributions.reduce((sum, value) => sum + value, 0n))
   await expectClaim(page, 'replay-contribution', { value: contributions, text: contributions.map(money) })
   await expectClaim(page, 'replay-total', { value: total, text: money(total) })
+
+  // The verdict's own sentence quotes two money figures. Until they were marked they were
+  // checked by nothing: a number INSIDE a verdict is already inside a marker, so the
+  // stray-measurement scan skips it, and the verdict's assertion reads its heading and its
+  // state, not its detail. Corrupting both left the whole gate green.
+  await expectClaim(page, 'replay-tally-before', { value: contributions[0], text: money(contributions[0]) })
 
   await expectVerdict(page, 'replay-vdaf', { text: 'PREPARATION ACCEPTED IT AGAIN', state: 'alarm' })
   await expectVerdict(page, 'replay-intake', { text: 'REJECTED BY INTAKE', state: 'reject' })

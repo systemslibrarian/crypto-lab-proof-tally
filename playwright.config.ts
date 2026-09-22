@@ -2,6 +2,11 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  // Rule 4 of e2e/verdict-audit.ts: the helpers write down the assertions they execute and
+  // the teardown requires every recorded mutation's assertion to be among them. Setup
+  // empties that sink and stamps the run; teardown throws, which fails the run.
+  globalSetup: './e2e/global-setup.ts',
+  globalTeardown: './e2e/global-teardown.ts',
   fullyParallel: false,
   timeout: 120_000,
   forbidOnly: !!process.env.CI,

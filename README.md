@@ -106,22 +106,24 @@ npm run build
 npx playwright install --with-deps chromium
 npm run test:a11y
 npm run test:verdicts
+npm run test:kills     # slow; replays all 35 recorded mutations
 ```
 
-The correctness suite currently contains 59 Vitest tests. It includes the official
+The correctness suite currently contains 61 Vitest tests. It includes the official
 `XofTurboShake128`, `Prio3Count_0`, and `Prio3Sum_0` known-answer fixtures, exact serialized verifier
 shares, malformed-input rejection, proof-share tampering, aggregation, Field64 boundaries, the
 replay behaviour: that preparation accepts a replayed report a second time, that the unrefused replay
 doubles the aggregate, and that the registry admits a nonce exactly once - and the marker
 registry described below.
 
-The Playwright gate contains 23 tests. Two drive every reachable exhibit at desktop and 380px with
+The Playwright gate contains 24 tests. Two drive every reachable exhibit at desktop and 380px with
 reduced motion, axe WCAG 2.1 A/AA, independent text-contrast and control-boundary oracles, and reflow
 checks. Fifteen claims tests independently recompute the displayed verifier sum, payroll aggregate,
 range boundary, KAT count and summary word, retirement behavior, the sharded envelopes, the replayed
 tally summed over its rendered contributions, the preparation verdict against the displayed combined
 verifier, the tally match word against the two displayed totals, the gadget-consistency refusal, the
-colluded reconstruction, and both negative claims. Six verdict-coverage tests are described below.
+colluded reconstruction, and both negative claims. Seven verdict-coverage tests, and one assertion
+that runs after all of them, are described below.
 
 ## Every Verdict and Every Measurement Is Computed, Marked, and Mutated
 
@@ -133,11 +135,11 @@ Verdicts (12): `preparation` · `tally-match` · `range-attack` · `tamper-attac
 `replay-intake` · `collusion` · `valid-lie` · `valid-lie-row` · `single-report` · `kat-summary` ·
 `kat-row`
 
-Measurements (22): `report-measurement` · `leader-share` · `helper-share` · `verifier-a` ·
+Measurements (23): `report-measurement` · `leader-share` · `helper-share` · `verifier-a` ·
 `verifier-b` · `combined-verifier` · `submitted-count` · `accepted-count` · `rejected-count` ·
 `protocol-aggregate` · `plain-sum` · `collusion-share-a` · `collusion-share-b` · `lie-row-reported` ·
 `lie-row-sealed` · `lie-aggregate` · `lie-truth` · `single-input` · `single-aggregate` · `kat-count` ·
-`replay-contribution` · `replay-total`
+`replay-contribution` · `replay-total` · `replay-tally-before`
 
 Coverage is derived by walking the rendered page, not from a list kept by hand. `driveEveryState()`
 visits **every option of every control that changes what renders** - both measurement types, the
@@ -147,7 +149,8 @@ cross-product. It is not a test; it is the denominator the rules below are appli
 never reaches is outside all of them. The tab list's arrow keys and the limits panel's `<details>`
 are skipped on purpose: they reach no markup the walk does not already hold.
 
-`e2e/verdicts.spec.ts` drives that walk and fails when:
+`e2e/verdicts.spec.ts` drives that walk, and it and the teardown that runs after every test
+fail when:
 
 - a rendered marker of **either** family has no recorded mutation in `e2e/verdict-mutations.json`, or
   a recorded mutation names a marker the page no longer renders;
@@ -157,23 +160,64 @@ are skipped on purpose: they reach no markup the walk does not already hold.
 - a **measurement** is rendered outside a marker in any result region: digit-plus-unit text, or a
   bare number. A number carries none of the signals the banner rules look for, and is the easier
   mistake to make. The spec injects one of those too;
-- a recorded mutation's killing test does not go through `expectVerdict()` / `expectClaim()`. Those
-  helpers assert a marker's text **and** its state (`data-result` plus the class that paints it) in
-  one call, so a mutation that flips the sentence while the pass styling stays cannot be recorded as
-  a kill. `valid-lie-row`'s recorded mutation is exactly that shape: it flips only the paint, leaves
+- a recorded mutation's killing assertion **did not run**. `expectVerdict()` / `expectClaim()`
+  assert a marker's text **and** its state (`data-result` plus the class that paints it) in one
+  call, so a mutation that flips the sentence while the pass styling stays cannot be recorded as a
+  kill. `valid-lie-row`'s recorded mutation is exactly that shape: it flips only the paint, leaves
   the word `VALID` standing, and is killed on the class.
+
+  **That last rule used to be a substring scan over the spec's source, and a scan enforces a
+  mention, not an execution.** With the call commented out, `expectVerdict(page, 'tamper-attack'`
+  still appeared in `claims.spec.ts`, the rule stayed green, and the page shipped
+  `ADMITTED WITH A FLIPPED PROOF SHARE`, painted alarm, for a report whose proof share had been
+  changed — with the recorded kill and the coverage test that polices it both green. A call in dead
+  code and a call in a neighbouring test read the same way to a scan.
+
+  So the helpers now write down the `(spec file, test title, marker)` triple they are entered with,
+  into a run-scoped sink under `.verdict-run/` that `globalSetup` empties and stamps first, and
+  `globalTeardown` requires every recorded mutation's triple to be in it. Playwright runs spec files
+  in separate worker processes, so nothing inside a test could see this; the teardown is where the
+  whole run's record exists, it is guaranteed to run last, and a throw there fails the run.
+
+A verdict record also pins the state its marker paints on a healthy page, and the check compares
+that pin to the state the killing test **handed** the helper. That catches the other half of the
+same defect: a call that runs but was fed values read off the page in the same test. Such a call
+asserts whatever the page says and therefore passes under every mutation — but its expectation moves
+with the page, and a moving expectation no longer matches the pin.
+
+**What that still does not reach, and what closes it.** A measurement has no state to pin. Its
+expected value is derived per run, and writing one into the registry would put back exactly the
+literal a derived oracle exists to remove. On an unmutated page a tautological `expectClaim()` is
+observationally identical to a correct one, so no rule read on a green run can separate them. Only a
+differential can, and that is `npm run test:kills` (`tools/verdict-kill.mjs`): it re-establishes the
+baseline, then applies each of the 35 recorded mutations in turn and requires the test that record
+names to go **red**. A survivor means the record is not evidence, whatever the source says and
+whatever ran. It is slow — one rebuild and one gate run per record — so it is a command rather than
+a CI step; run it after touching any oracle in `e2e/claims.spec.ts`. Last full run: **35 killed, 0
+survived**, baseline green in the same session.
 
 Where a total is summed over a list, the oracle sums the rendered list rather than multiplying one
 entry by a count - the payroll tally, the valid-lie ledger, and the replay tally all derive their
 expected total that way.
 
-Each of the thirty-four markers has a §4.1c mutation recorded with the recipe that produces it:
+**A number rendered inside a verdict is still a measurement.** The replay verdict's own sentence
+quotes two money figures, and they escaped all three rules at once: the stray-number scan skips them
+because they are already inside a marker, they carried no marker of their own, and the verdict's
+assertion reads its heading and its state rather than its detail. Corrupting both by `+999` left the
+whole gate green. They are now marked — `replay-tally-before` for the figure the tally moves from,
+and `replay-total` reused for the figure it moves to, since that is the same claim the ledger states
+— and `expectClaim()` holds both `replay-total` nodes to the one derived total.
+
+Each of the thirty-five markers has a §4.1c mutation recorded with the recipe that produces it:
 
 ```bash
 node tools/verdict-mutation.mjs list
 node tools/verdict-mutation.mjs apply <marker>    # forces that one verdict to the wrong answer
 CI=1 npx playwright test                          # the named test must fail on its own assertion
 node tools/verdict-mutation.mjs restore <marker>
+
+node tools/verdict-kill.mjs verify                # or all of them, checked automatically
+node tools/verdict-kill.mjs verify <marker>…
 ```
 
 `CI=1` matters: it turns off `reuseExistingServer`, so the suite cannot be served an unmutated

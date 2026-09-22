@@ -304,6 +304,14 @@ function runNonceAttack(): void {
    * and it does NOT buy the sum-versus-product distinction. The count comes from the array
    * that was aggregated, never from a literal 2; keep it that way, and keep the rendered
    * sentence off any word this page cannot show.
+   *
+   * The two figures in that sentence carry markers of their own. A number rendered INSIDE a
+   * verdict is skipped by the stray-measurement scan — it is already inside a marker — and
+   * the verdict's own assertion only checks the heading, so both figures were rendered,
+   * read, and checked by nothing: corrupting either left the gate green. Marking them puts
+   * them back under the same coverage rule as every other measurement. `replay-total` is
+   * reused rather than duplicated, because the "to" figure IS the total the ledger states;
+   * expectClaim() then holds both of its nodes to the one derived value.
    */
   const acceptedTraces = [firstTrace, replayTrace].filter((trace) => trace.accepted)
   const shares = acceptedTraces.map((trace, index) => requireOutputShares(trace, `submission ${index + 1}`))
@@ -315,7 +323,7 @@ function runNonceAttack(): void {
   const single = contributions[0]
 
   const vdafOutcome = replayTrace.accepted
-    ? verdict('replay-vdaf', 'alarm', 'PREPARATION ACCEPTED IT AGAIN', `the proofs in a replayed report are still correct, so the VDAF returns accepted a second time; the tally would move from ${money(single)} to ${money(total)} on one measurement`)
+    ? verdict('replay-vdaf', 'alarm', 'PREPARATION ACCEPTED IT AGAIN', `the proofs in a replayed report are still correct, so the VDAF returns accepted a second time; the tally would move from ${claim('replay-tally-before', single, money(single), 'span')} to ${claim('replay-total', total, money(total), 'span')} on one measurement`)
     : verdict('replay-vdaf', 'pass', 'PREPARATION REFUSED THE REPLAY', `the VDAF turned the duplicate away on its own: ${replayTrace.cause}`)
 
   element('#nonce-result').innerHTML = `<div data-replay="true" data-first-admitted="${firstAdmitted}" data-guard-admitted="${replayAdmitted}" data-vdaf-replay-accepted="${replayTrace.accepted}">
