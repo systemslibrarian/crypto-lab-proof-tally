@@ -2,6 +2,7 @@
   {
     "marker": "preparation",
     "kind": "verdict",
+    "paints": "pass",
     "file": "src/ui/app.ts",
     "find": "${trace.accepted\n      ? verdict('preparation'",
     "replace": "${!trace.accepted\n      ? verdict('preparation'",
@@ -10,6 +11,7 @@
   {
     "marker": "tally-match",
     "kind": "verdict",
+    "paints": "pass",
     "file": "src/ui/app.ts",
     "find": "const agrees = aggregate === plainSum",
     "replace": "const agrees = aggregate !== plainSum",
@@ -18,6 +20,7 @@
   {
     "marker": "range-attack",
     "kind": "verdict",
+    "paints": "reject",
     "file": "src/ui/app.ts",
     "find": "const refused = !trace.accepted\n  element('#range-result')",
     "replace": "const refused = trace.accepted\n  element('#range-result')",
@@ -26,6 +29,7 @@
   {
     "marker": "tamper-attack",
     "kind": "verdict",
+    "paints": "reject",
     "file": "src/ui/app.ts",
     "find": "const refused = !trace.accepted\n  element('#tamper-result')",
     "replace": "const refused = trace.accepted\n  element('#tamper-result')",
@@ -34,6 +38,7 @@
   {
     "marker": "replay-vdaf",
     "kind": "verdict",
+    "paints": "alarm",
     "file": "src/ui/app.ts",
     "find": "const replayTrace = protocol.prepare(VERIFY_KEY, CONTEXT, report)",
     "replace": "const replayTrace = protocol.prepare(VERIFY_KEY, CONTEXT, tamperProofShare(report))",
@@ -42,6 +47,7 @@
   {
     "marker": "replay-intake",
     "kind": "verdict",
+    "paints": "reject",
     "file": "src/prio3/replay.ts",
     "find": "if (this.seen.has(key)) return false",
     "replace": "if (this.seen.has(key)) return true",
@@ -50,6 +56,7 @@
   {
     "marker": "collusion",
     "kind": "verdict",
+    "paints": "alarm",
     "file": "src/attack/collude.ts",
     "find": "addVectors(shares[0], shares[1])",
     "replace": "addVectors(shares[0], shares[0])",
@@ -58,6 +65,7 @@
   {
     "marker": "valid-lie",
     "kind": "verdict",
+    "paints": "alarm",
     "file": "src/ui/app.ts",
     "find": "const lieStands = allValid && reportedTotal !== truthTotal",
     "replace": "const lieStands = allValid && reportedTotal === truthTotal",
@@ -66,6 +74,7 @@
   {
     "marker": "valid-lie-row",
     "kind": "verdict",
+    "paints": "pass",
     "file": "src/ui/app.ts",
     "find": "<b class=\"valid-word ${item.trace.accepted ? 'pass' : 'fail'}\"",
     "replace": "<b class=\"valid-word ${!item.trace.accepted ? 'pass' : 'fail'}\"",
@@ -74,6 +83,7 @@
   {
     "marker": "single-report",
     "kind": "verdict",
+    "paints": "alarm",
     "file": "src/ui/app.ts",
     "find": "const exposes = total === value",
     "replace": "const exposes = total !== value",
@@ -82,6 +92,7 @@
   {
     "marker": "kat-summary",
     "kind": "verdict",
+    "paints": "pass",
     "file": "src/ui/app.ts",
     "find": "const allMatch = rows.every(([, passed]) => passed)",
     "replace": "const allMatch = !rows.every(([, passed]) => passed)",
@@ -90,6 +101,7 @@
   {
     "marker": "kat-row",
     "kind": "verdict",
+    "paints": "pass",
     "file": "src/ui/app.ts",
     "find": "<span class=\"kat-status ${passed ? 'pass' : 'fail'}\"",
     "replace": "<span class=\"kat-status ${!passed ? 'pass' : 'fail'}\"",
@@ -269,6 +281,14 @@
     "file": "src/ui/app.ts",
     "find": "[aggregateOutputShares(shares.map(([leader]) => leader)), aggregateOutputShares(shares.map(([, helper]) => helper))]",
     "replace": "[aggregateOutputShares(shares.slice(0, 1).map(([leader]) => leader)), aggregateOutputShares(shares.slice(0, 1).map(([, helper]) => helper))]",
+    "kills": "claims.spec.ts - a replayed report re-verifies and only the intake registry stops it"
+  },
+  {
+    "marker": "replay-tally-before",
+    "kind": "claim",
+    "file": "src/ui/app.ts",
+    "find": "const single = contributions[0]",
+    "replace": "const single = contributions[0] + 999n",
     "kills": "claims.spec.ts - a replayed report re-verifies and only the intake registry stops it"
   }
 ]

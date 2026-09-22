@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
+import { basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { expect, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import { observe, observations, type Expectation, type HelperName, type Observation } from './verdict-observations'
 
 /**
  * Coverage is derived from the rendered page, never from a list an author keeps by hand.
@@ -18,11 +20,26 @@ import { expect, type Page } from '@playwright/test'
  *     failure — that is what catches a raw banner, or a raw number, added later by someone
  *     who never read this file. A number is the easier mistake to make, because a number
  *     does not look like a claim;
- *  4. every recorded mutation's killing test must go through expectVerdict()/expectClaim(),
- *     which assert a marker's rendered text and its machine-readable state in ONE call.
- *     A test that only matched the words would let a mutation flip the sentence while the
- *     pass paint stayed, and be recorded as a kill for a marker that still claims pass in
- *     every way a reader can see except one.
+ *  4. every recorded mutation's killing assertion must have RUN. expectVerdict() and
+ *     expectClaim() assert a marker's rendered text and its machine-readable state in ONE
+ *     call, and each writes down the (spec file, test title, marker) triple it was entered
+ *     with. After the whole run, globalTeardown requires every recorded mutation's triple
+ *     to appear in that record.
+ *
+ *     This used to be a substring scan over spec source, and a scan enforces a MENTION,
+ *     not an execution — which is the brief's own "a mention is not an assertion" one
+ *     level down. A call commented out, a call in dead code, and a call in a neighbouring
+ *     test all read identically to a scan, and each of them let a recorded mutation ship
+ *     green with the coverage test that polices it green too. helperViolations() below is
+ *     kept as a cheap static pre-check with a clearer message, but it is no longer the
+ *     authority: observationViolations() is, because it reads what ran.
+ *
+ *     A verdict record also pins the state its marker paints on a healthy page, and the
+ *     check compares that to the state the helper was HANDED. That is what catches the
+ *     other half of the same defect: a call that is executed but tautological, fed values
+ *     read off the page in the same test. Such a call passes under any mutation, because
+ *     its expectation moves with the page — and an expectation that moves with the page
+ *     no longer matches the pin.
  *
  * The denominator for rules 1-3 is driveEveryState(), which visits every option of every
  * control that changes what renders. A state the walk never reaches is outside every rule
@@ -38,6 +55,13 @@ export interface RecordedMutation {
   find: string
   replace: string
   kills: string
+  /**
+   * Verdict records only: the state this marker paints on a healthy page, which is also the
+   * state the killing test must HAND expectVerdict(). A measurement has no such pin — its
+   * value is what the oracle derives, and pinning it here would put back the literal Fix 4
+   * exists to remove. See observationViolations() for what that leaves open.
+   */
+  paints?: VerdictState
 }
 
 export interface StrayVerdict {
@@ -100,10 +124,19 @@ export function specSources(): Map<string, string> {
   return new Map(['claims.spec.ts', 'verdicts.spec.ts'].map((name) => [name, readFileSync(`${SPEC_DIRECTORY}${name}`, 'utf8')]))
 }
 
+/** The spec file, test title and helper one record names. */
+export function killedBy(entry: RecordedMutation): { file: string; title: string; helper: HelperName } {
+  const [file, title] = splitKills(entry.kills)
+  return { file, title, helper: entry.kind === 'verdict' ? 'expectVerdict' : 'expectClaim' }
+}
+
 /**
- * A recorded kill is only evidence if the test named in `kills` asserts that marker's text
- * and its state together. This reads the named test's own body: a mention elsewhere in the
- * file is not an assertion, and an assertion in another test is not this mutation's kill.
+ * A cheap STATIC pre-check, kept for its message rather than its authority: it names a
+ * mutation whose `kills` points at a file or a test title that does not exist, which
+ * observationViolations() can only report as "never ran". It reads the named test's own
+ * body, so a call in another test does not satisfy it — but a call this file merely
+ * CONTAINS does, whether or not anything executes it, and that is exactly why it is not
+ * the rule any more. observationViolations() is.
  */
 export function helperViolations(
   recorded: readonly RecordedMutation[],
@@ -128,6 +161,73 @@ export function helperViolations(
     }
   }
   return violations
+}
+
+/**
+ * Rule 4, as executed rather than as written down. Every recorded mutation names a test and
+ * a marker; this requires that expectVerdict()/expectClaim() was actually ENTERED for that
+ * marker inside that test during this run, and — for a verdict — that the state it was
+ * handed is the one the healthy page paints.
+ *
+ * The three ways a source scan is satisfied without an assertion happening all fail here:
+ * a call inside a comment never runs, a call in dead code never runs, and a call in a
+ * neighbouring test runs under a different title. The fourth — a call that runs but was
+ * fed values read off the page in the same test — is caught for verdicts by the `paints`
+ * pin, because a tautological expectation is the mutated page's own state.
+ *
+ * What it does NOT reach: the same tautology on a MEASUREMENT. A claim's expected value is
+ * derived per run, so there is no healthy literal to pin without putting back the literal
+ * Fix 4 removed, and on an unmutated run a tautological expectClaim() is observationally
+ * identical to a correct one. Only a differential can separate those, which is what
+ * `npm run test:kills` is: it applies each recorded mutation and requires the named test to
+ * go red. Run it after touching any oracle in claims.spec.ts.
+ */
+export function observationViolations(
+  recorded: readonly RecordedMutation[],
+  seen: readonly Observation[] = observations(),
+): string[] {
+  if (recorded.length > 0 && seen.length === 0) {
+    return [
+      `no expectVerdict()/expectClaim() call was observed in this run, so none of the ${recorded.length} recorded kills is evidence of anything. The gate set is "npm run test:verdicts"; a narrower selection cannot judge coverage, and must not be read as having judged it.`,
+    ]
+  }
+
+  const violations: string[] = []
+  for (const entry of recorded) {
+    const { file, title, helper } = killedBy(entry)
+    const matches = seen.filter(
+      (item) => item.file === file && item.title === title && item.marker === entry.marker && item.helper === helper,
+    )
+    if (matches.length === 0) {
+      violations.push(
+        `${entry.marker}: ${helper}(page, '${entry.marker}', …) never RAN inside ${JSON.stringify(title)}. ${file} may well contain that call — commented out, in dead code, or in a neighbouring test all read the same to a source scan — but nothing executed it, so this recorded kill checked nothing.`,
+      )
+      continue
+    }
+    if (entry.paints === undefined) continue
+    for (const match of matches) {
+      if (match.expected.state === entry.paints) continue
+      violations.push(
+        `${entry.marker}: ${JSON.stringify(title)} handed expectVerdict() state ${JSON.stringify(match.expected.state)} where a healthy page paints ${JSON.stringify(entry.paints)}. An expectation that moves with the page was read OFF the page, so the call runs, passes under any mutation, and checks nothing.`,
+      )
+    }
+  }
+  return violations
+}
+
+/** The expectation a helper was handed, flattened to strings so it survives the sink. */
+function handed(expected: Record<string, unknown>): Expectation {
+  const flattened: Expectation = {}
+  for (const [key, value] of Object.entries(expected)) {
+    if (value === undefined) continue
+    flattened[key] = Array.isArray(value) ? value.map((item) => String(item)) : String(value)
+  }
+  return flattened
+}
+
+function record(marker: string, helper: HelperName, expected: Record<string, unknown>): void {
+  const info = test.info()
+  observe({ file: basename(info.file), title: info.title, marker, helper, expected: handed(expected) })
 }
 
 /** Every marker currently in the DOM, and every verdict or measurement rendered outside one. */
@@ -196,6 +296,7 @@ export async function expectVerdict(
   marker: string,
   expected: { text: string | readonly string[]; state: VerdictState },
 ): Promise<void> {
+  record(marker, 'expectVerdict', expected)
   const nodes = page.locator(`[data-verdict="${marker}"]`)
   const texts = Array.isArray(expected.text) ? (expected.text as readonly string[]) : undefined
   const count = await nodes.count()
@@ -232,6 +333,7 @@ export async function expectClaim(
     exact?: boolean
   },
 ): Promise<void> {
+  record(marker, 'expectClaim', expected)
   const nodes = page.locator(`[data-claim="${marker}"]`)
   const values = Array.isArray(expected.value) ? (expected.value as readonly (bigint | number | string)[]) : undefined
   const texts = Array.isArray(expected.text) ? (expected.text as readonly string[]) : undefined

@@ -137,6 +137,8 @@ input[type="number"] { width: 100%; min-height: 44px; border: 1px solid var(--co
 .verdict-icon { display: grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px; border: 1px solid currentColor; border-radius: 50%; font-weight: 800; }
 .verdict strong, .verdict span { display: block; }
 .verdict div > span { margin-top: .1rem; font-size: .82rem; color: var(--text-dim); }
+/* A measurement marked inside a verdict detail stays in the sentence: the rule above makes every span in a verdict a block. */
+.verdict div > span [data-claim] { display: inline; font-size: inherit; color: inherit; }
 .verdict.pass, .verdict.reject { border-color: var(--accent); background-color: #102017; }
 .verdict.pass .verdict-icon, .verdict.reject .verdict-icon { color: var(--accent-text); }
 .verdict.alarm { border-color: var(--alarm); background-color: #241c0d; }
