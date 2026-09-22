@@ -183,12 +183,19 @@ The `verdict-coverage` job in `.github/workflows/deploy.yml` runs this gate as i
 check, and `deploy` declares `needs: [build, verdict-coverage]`, so an uncovered verdict or
 measurement cannot reach the live site even on a direct push to `main`.
 
-**One thing this gate cannot decide.** The replay exhibit submits the same report twice, so its two
-contributions are equal by construction and summing them is observationally identical to doubling
-one. A page rewritten to multiply the first contribution by the contribution count passes every test
-here, and was run to confirm it. What the summed oracle does buy is that no literal `2` remains in
-the spec, the per-submission contributions are rendered and counted, and a page that aggregates only
-the first submission is killed (`replay-total`).
+**One thing this gate cannot decide, and what the page says because of it.** The replay exhibit
+submits the same report twice, so its two contributions are equal by construction and summing them
+is observationally identical to doubling one. A page rewritten to multiply the first contribution by
+the contribution count passes every test here, and was run to confirm it. What the summed oracle
+does buy is that no literal `2` remains in the spec, the per-submission contributions are rendered
+and counted, and a page that aggregates only the first submission is killed (`replay-total`).
+
+So the sentence beside that number claims scope and not arithmetic. It reads *Across the submissions
+preparation accepted, the tally holds …*; it used to read *Summed over …*, and that word was the one
+thing in it no test here could back. The rule it is an instance of: **if the page cannot show the
+difference, it cannot claim it.** Making the claim provable means rendering a case where the sum and
+the product differ — unequal contributions, or a third submission — which changes what the exhibit
+teaches and is a deliberate design decision rather than a harness fix.
 
 ## Performance
 

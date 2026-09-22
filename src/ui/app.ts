@@ -293,10 +293,17 @@ function runNonceAttack(): void {
   /**
    * The tally is summed over the submissions preparation accepted — one contribution per
    * accepted submission, each of them rendered. e2e/claims.spec.ts adds the rendered
-   * contributions up and compares that sum to the rendered total. It must not multiply one
-   * contribution by a submission count: that oracle cannot tell a page that summed two
-   * measurements from a page that doubled one, which is the distinction this exhibit is
-   * about. The count comes from the array that was aggregated, never from a literal 2.
+   * contributions up and compares that sum to the rendered total.
+   *
+   * Be exact about what that oracle buys, because the sentence beside the number used to
+   * claim more than it. This exhibit submits ONE report twice, so its two contributions are
+   * equal by construction, and summing two equal terms is arithmetically identical to
+   * doubling one. No test written against this page can separate the two. The summed oracle
+   * buys three real things — no literal 2 survives in the spec, every contribution is
+   * rendered and counted, and a page that aggregates only the first submission is killed —
+   * and it does NOT buy the sum-versus-product distinction. The count comes from the array
+   * that was aggregated, never from a literal 2; keep it that way, and keep the rendered
+   * sentence off any word this page cannot show.
    */
   const acceptedTraces = [firstTrace, replayTrace].filter((trace) => trace.accepted)
   const shares = acceptedTraces.map((trace, index) => requireOutputShares(trace, `submission ${index + 1}`))
@@ -314,7 +321,7 @@ function runNonceAttack(): void {
   element('#nonce-result').innerHTML = `<div data-replay="true" data-first-admitted="${firstAdmitted}" data-guard-admitted="${replayAdmitted}" data-vdaf-replay-accepted="${replayTrace.accepted}">
     ${vdafOutcome}
     <ul class="replay-ledger">${contributions.map((value, index) => `<li><span>Submission ${index + 1}</span>${claim('replay-contribution', value, money(value))}</li>`).join('')}</ul>
-    <p class="replay-tally">Summed over every submission preparation accepted, the tally holds ${claim('replay-total', total, money(total))}.</p>
+    <p class="replay-tally">Across the submissions preparation accepted, the tally holds ${claim('replay-total', total, money(total))}.</p>
     ${replayAdmitted
       ? verdict('replay-intake', 'alarm', 'ADMITTED BY INTAKE', `nonce ${nonceKey.slice(0, 16)}… had already been recorded and the registry let it through anyway`)
       : verdict('replay-intake', 'reject', 'REJECTED BY INTAKE', `nonce ${nonceKey.slice(0, 16)}… was already seen; this lab's registry refuses the duplicate before preparation`)}
