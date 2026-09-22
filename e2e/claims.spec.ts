@@ -171,10 +171,14 @@ test('a replayed report re-verifies and only the intake registry stops it', asyn
   await expect(result).toHaveAttribute('data-vdaf-replay-accepted', 'true')
   await expect(result).toHaveAttribute('data-guard-admitted', 'false')
 
-  // The exhibit submits one report twice, so the tally must be the SUM of the contributions
-  // it rendered. Multiplying the first contribution by a submission count would agree with
-  // a page that doubled one measurement instead of summing two, which is the whole point
-  // of this exhibit.
+  // The tally must be the sum of the contributions the page rendered, with the number of
+  // terms taken from what was rendered rather than from a literal 2.
+  //
+  // What that does NOT establish: the exhibit submits one report twice, so its two
+  // contributions are equal, and summing two equal terms is identical to doubling one. This
+  // oracle cannot tell those apart and neither can any other written against this page. It
+  // kills a page that aggregates only the first submission, and it keeps the literal out of
+  // the spec. The rendered sentence is worded to claim only that much.
   const contributions = await claimValues(page, 'replay-contribution')
   expect(contributions, 'one contribution per submission preparation accepted').toHaveLength(2)
   const total = await claimValue(page, 'replay-total')
