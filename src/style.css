@@ -137,6 +137,8 @@ input[type="number"] { width: 100%; min-height: 44px; border: 1px solid var(--co
 .verdict-icon { display: grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px; border: 1px solid currentColor; border-radius: 50%; font-weight: 800; }
 .verdict strong, .verdict span { display: block; }
 .verdict div > span { margin-top: .1rem; font-size: .82rem; color: var(--text-dim); }
+/* A measurement marked inside a verdict detail stays in the sentence: the rule above makes every span in a verdict a block. */
+.verdict div > span [data-claim] { display: inline; font-size: inherit; color: inherit; }
 .verdict.pass, .verdict.reject { border-color: var(--accent); background-color: #102017; }
 .verdict.pass .verdict-icon, .verdict.reject .verdict-icon { color: var(--accent-text); }
 .verdict.alarm { border-color: var(--alarm); background-color: #241c0d; }
@@ -169,6 +171,10 @@ input[type="number"] { width: 100%; min-height: 44px; border: 1px solid var(--co
 #collusion-result { grid-column: 1 / -1; }
 .share-pair { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-top: .7rem; }
 .share-pair code { padding: .55rem; border: 1px solid var(--border); background-color: var(--bg); font-size: .72rem; }
+.replay-ledger { display: grid; gap: .3rem; margin: .7rem 0 0; padding: 0; list-style: none; font-size: .82rem; }
+.replay-ledger li { display: flex; justify-content: space-between; gap: .75rem; padding: .3rem 0; border-bottom: 1px solid var(--border); }
+.replay-tally { margin: .5rem 0 0; font-size: .82rem; }
+.replay-ledger strong, .replay-tally strong { font-family: var(--mono); }
 
 .limits-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .fixture { padding: 1.1rem; border: 1px solid var(--border); border-radius: 7px; background-color: var(--surface); }
@@ -177,9 +183,11 @@ input[type="number"] { width: 100%; min-height: 44px; border: 1px solid var(--co
 .fixture-ledger { display: grid; gap: .35rem; margin-top: .8rem; }
 .fixture-ledger > div { display: grid; grid-template-columns: 1fr auto auto auto; gap: .5rem; padding: .4rem 0; border-bottom: 1px solid var(--border); font-size: .78rem; }
 .valid-word { color: var(--accent-text); font-family: var(--mono); }
+.valid-word.fail { color: var(--danger-text); }
 .kat-summary { display: flex; justify-content: space-between; gap: 1rem; padding: .75rem .9rem; border-left: 3px solid var(--accent); background-color: var(--surface); }
 .kat-summary span { color: var(--text-dim); }
 .kat-summary strong { color: var(--accent-text); font-family: var(--mono); }
+.kat-verdict.fail { color: var(--danger-text); }
 .table-wrap { margin-top: .7rem; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
 table { width: 100%; border-collapse: collapse; font-size: .84rem; }
 th, td { padding: .65rem .75rem; border-bottom: 1px solid var(--border); text-align: left; }
