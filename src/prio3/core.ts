@@ -26,6 +26,7 @@ import type {
 } from './types'
 
 const DRAFT_FORMAT_VERSION = 18
+const NONCE_SIZE = 16
 const NUMBER_OF_SHARES = 2
 const NUMBER_OF_PROOFS = 1
 const USAGE_MEASUREMENT_SHARE = 1
@@ -90,7 +91,7 @@ export class Prio3 {
   shard(
     context: Uint8Array,
     measurement: bigint,
-    nonce = randomBytes(16),
+    nonce = randomBytes(NONCE_SIZE),
     randomness = randomBytes(this.randomSize),
   ): Report {
     return this.shardEncoded(context, this.options.circuit.encode(measurement), nonce, randomness)
@@ -99,10 +100,10 @@ export class Prio3 {
   shardEncoded(
     context: Uint8Array,
     encodedMeasurement: readonly Field64[],
-    nonce = randomBytes(16),
+    nonce = randomBytes(NONCE_SIZE),
     randomness = randomBytes(this.randomSize),
   ): Report {
-    if (nonce.length !== 16) throw new RangeError('nonce must be exactly 16 bytes')
+    if (nonce.length !== NONCE_SIZE) throw new RangeError('nonce must be exactly 16 bytes')
     if (randomness.length !== this.randomSize) throw new RangeError('incorrect sharding randomness length')
     if (encodedMeasurement.length !== this.options.circuit.measurementLength) {
       throw new RangeError('incorrect encoded measurement length')
@@ -134,7 +135,7 @@ export class Prio3 {
     )
     const leaderProof = subVectors(fullProof, helperProof)
     return {
-      nonce,
+      nonce: new Uint8Array(nonce),
       inputShares: [
         { role: 'leader', measurement: leaderMeasurement, proof: leaderProof },
         { role: 'helper', seed: helperSeed },
@@ -174,6 +175,7 @@ export class Prio3 {
     inputShare: InputShare,
   ): [VerifyState, VerifierShare] {
     if (verifyKey.length !== XOF_SEED_SIZE) throw new RangeError('verify key must be exactly 32 bytes')
+    if (nonce.length !== NONCE_SIZE) throw new RangeError('nonce must be exactly 16 bytes')
     const [measurementShare, proofShare] = this.expandInputShare(context, aggregatorId, inputShare)
     const outputShare = this.options.circuit.truncate(measurementShare)
     const queryRandomness = this.expand(

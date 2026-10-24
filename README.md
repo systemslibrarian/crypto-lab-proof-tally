@@ -14,7 +14,9 @@ byte `D=1`. Its deterministic tests are pinned to CFRG reference commit
 tagged `draft-irtf-cfrg-vdaf-22`.
 
 This is not production crypto. It is browser-based teaching code, is not constant-time, and does not
-implement DAP transport or persistence.
+implement DAP transport or persistence. All three roles share one browser process, where the fixed
+demonstration verification key is visible to client code; this does not reproduce the draft's
+verification-key secrecy or secure-channel assumptions.
 
 ## Exhibits
 
@@ -53,6 +55,8 @@ shares, and combines accepted output shares without a backend.
 
 - An out-of-range or malformed report is rejected when the combined verifier is nonzero.
 - A changed proof share fails the gadget-consistency check.
+- A real deployment must keep the verification key secret from clients and commit to it before
+  processing reports. This single-process lab deliberately does neither.
 - A replayed report still passes preparation - its proofs are still correct, and the VDAF keeps no
   memory of reports it has seen - so the aggregate would count it twice. Replay is refused outside
   the VDAF; this lab's `NonceRegistry` rejects a 16-byte nonce it has already admitted.
@@ -103,22 +107,24 @@ npm run preview -- --port 4686
 ```bash
 npm test
 npm run build
-npx playwright install --with-deps chromium
+npx playwright install chromium
 npm run test:a11y
 npm run test:verdicts
 npm run test:kills     # slow; replays all 35 recorded mutations
 ```
 
-The correctness suite currently contains 61 Vitest tests. It includes the official
+The correctness suite currently contains 62 Vitest tests. It includes the official
 `XofTurboShake128`, `Prio3Count_0`, and `Prio3Sum_0` known-answer fixtures, exact serialized verifier
 shares, malformed-input rejection, proof-share tampering, aggregation, Field64 boundaries, the
 replay behaviour: that preparation accepts a replayed report a second time, that the unrefused replay
 doubles the aggregate, and that the registry admits a nonce exactly once - and the marker
-registry described below.
+registry described below, plus strict 16-byte report-nonce handling and input snapshotting.
 
-The Playwright gate contains 24 tests. Two drive every reachable exhibit at desktop and 380px with
+The Playwright gate contains 26 tests. Two drive every reachable exhibit at desktop and 380px with
 reduced motion, axe WCAG 2.1 A/AA, independent text-contrast and control-boundary oracles, and reflow
-checks. Fifteen claims tests independently recompute the displayed verifier sum, payroll aggregate,
+checks. Two state-integrity tests prove invalid input retires an actionable report and the displayed
+last payroll report is the exact report included in the tally. Fifteen claims tests independently
+recompute the displayed verifier sum, payroll aggregate,
 range boundary, KAT count and summary word, retirement behavior, the sharded envelopes, the replayed
 tally summed over its rendered contributions, the preparation verdict against the displayed combined
 verifier, the tally match word against the two displayed totals, the gadget-consistency refusal, the

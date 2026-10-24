@@ -49,7 +49,7 @@
         </div>
         <aside class="cl-hero-why" aria-label="Why it matters">
           <span class="cl-hero-why-label">WHY IT MATTERS</span>
-          <p class="cl-hero-why-text">Private telemetry is useful only if one liar cannot poison the total. Prio3 rejects a malformed report while keeping its measurement split between servers.</p>
+          <p class="cl-hero-why-text">With a verification key hidden from clients, Prio3 rejects a malformed report while keeping its measurement split between servers. This single-process demo exposes a fixed test key and teaches the arithmetic, not that deployment boundary.</p>
         </aside>
       </div>
 
@@ -172,7 +172,7 @@
             </details>
           </section>
 
-          <aside class="scope-warning"><i data-lucide="info" aria-hidden="true"></i><p><strong>Teaching implementation.</strong> The arithmetic and proof flow are real and vector-tested. This is not production crypto: it is not constant-time, has no DAP transport, and keeps demonstration keys in browser memory.</p></aside>
+          <aside class="scope-warning"><i data-lucide="info" aria-hidden="true"></i><p><strong>Teaching implementation.</strong> The arithmetic and proof flow are real and vector-tested. This is not production crypto: it is not constant-time, has no DAP transport, and exposes the fixed demonstration verification key to the same browser code acting as the client. It does not reproduce the draft's key-secrecy or secure-channel assumptions.</p></aside>
         </section>
       </main>
 

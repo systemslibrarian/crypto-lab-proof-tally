@@ -80,6 +80,16 @@ describe('draft-irtf-cfrg-vdaf-22 Prio3', () => {
     expect(trace.accepted).toBe(false)
   })
 
+  it('snapshots and enforces the 16-byte report nonce boundary', () => {
+    const protocol = createPrio3Count()
+    const suppliedNonce = new Uint8Array(nonce)
+    const report = protocol.shard(context, 1n, suppliedNonce, randomness)
+    suppliedNonce[0] ^= 0xff
+    expect(report.nonce).toEqual(nonce)
+    expect(protocol.prepare(verifyKey, context, report).accepted).toBe(true)
+    expect(() => protocol.prepare(verifyKey, context, { ...report, nonce: report.nonce.slice(1) })).toThrow('exactly 16 bytes')
+  })
+
   it('aggregates only accepted output shares and refuses an empty aggregate', () => {
     const protocol = createPrio3Count()
     const reports = [0n, 1n, 1n].map((measurement, index) => {

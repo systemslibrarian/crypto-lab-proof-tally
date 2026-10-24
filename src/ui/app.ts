@@ -22,6 +22,7 @@ interface ActiveReport {
 interface TallyRecord {
   reported: bigint
   truth: bigint
+  report: Report
   trace: PreparationTrace
 }
 
@@ -130,7 +131,7 @@ function renderMechanism(): void {
   aggregateButton.disabled = !activeReport.trace?.accepted || activeReport.added
   setRail(activeReport.added ? 3 : activeReport.trace ? 2 : 1)
 
-  let html = `<div class="report-origin"><span>CLIENT REPORT</span>${claim('report-measurement', activeReport.measurement, activeReport.mode === 'sum' ? money(activeReport.measurement) : activeReport.measurement.toString())}<small>${typeName} · draft-22</small></div>
+  let html = `<div class="report-origin" data-report-nonce="${toHex(activeReport.report.nonce)}"><span>CLIENT REPORT</span>${claim('report-measurement', activeReport.measurement, activeReport.mode === 'sum' ? money(activeReport.measurement) : activeReport.measurement.toString())}<small>${typeName} · draft-22</small></div>
     <div class="split-line" aria-hidden="true"><span></span><b>split + prove</b><span></span></div>
     <div class="envelopes">
       <article class="envelope leader"><div class="envelope-head"><span>A</span><div><strong>Aggregator A</strong><small>leader input share</small></div></div>${claim('leader-share', leader.length, compactFields(leader), 'code')}<p>Measurement share + proof share. No plain salary.</p></article>
@@ -167,14 +168,19 @@ function renderTally(): void {
   const aggregate = unshard([leaderAggregate, helperAggregate], accepted.length)
   const plainSum = accepted.reduce((sum, record) => sum + record.reported, 0n)
   const agrees = aggregate === plainSum
-  root.innerHTML = `<div class="tally-stat"><span>SUBMITTED</span>${claim('submitted-count', records.length, String(records.length))}</div><div class="tally-stat"><span>ACCEPTED</span>${claim('accepted-count', accepted.length, String(accepted.length))}</div><div class="tally-stat"><span>REJECTED</span>${claim('rejected-count', rejected, String(rejected))}</div><div class="sum-comparison"><div><span>PROTOCOL AGGREGATE</span>${claim('protocol-aggregate', aggregate, mode === 'sum' ? money(aggregate) : String(aggregate))}</div><span class="equality ${agrees ? 'pass' : 'mismatch'}" data-verdict="tally-match" data-result="${agrees ? 'pass' : 'reject'}" aria-hidden="true">${agrees ? '=' : '!='}</span><div><span>PLAIN SUM</span>${claim('plain-sum', plainSum, mode === 'sum' ? money(plainSum) : String(plainSum))}</div><p class="byte-match ${agrees ? 'pass' : 'mismatch'}" data-verdict="tally-match" data-result="${agrees ? 'pass' : 'reject'}">${agrees ? 'MATCH: Field64 byte equality' : 'MISMATCH: the protocol aggregate is not the plain sum'}</p>${accepted.map((record) => `<i data-accepted-value="${record.reported}" hidden></i>`).join('')}</div>`
+  root.innerHTML = `<div class="tally-stat"><span>SUBMITTED</span>${claim('submitted-count', records.length, String(records.length))}</div><div class="tally-stat"><span>ACCEPTED</span>${claim('accepted-count', accepted.length, String(accepted.length))}</div><div class="tally-stat"><span>REJECTED</span>${claim('rejected-count', rejected, String(rejected))}</div><div class="sum-comparison"><div><span>PROTOCOL AGGREGATE</span>${claim('protocol-aggregate', aggregate, mode === 'sum' ? money(aggregate) : String(aggregate))}</div><span class="equality ${agrees ? 'pass' : 'mismatch'}" data-verdict="tally-match" data-result="${agrees ? 'pass' : 'reject'}" aria-hidden="true">${agrees ? '=' : '!='}</span><div><span>PLAIN SUM</span>${claim('plain-sum', plainSum, mode === 'sum' ? money(plainSum) : String(plainSum))}</div><p class="byte-match ${agrees ? 'pass' : 'mismatch'}" data-verdict="tally-match" data-result="${agrees ? 'pass' : 'reject'}">${agrees ? 'MATCH: Field64 byte equality' : 'MISMATCH: the protocol aggregate is not the plain sum'}</p>${accepted.map((record) => `<i data-accepted-value="${record.reported}" data-accepted-nonce="${toHex(record.report.nonce)}" hidden></i>`).join('')}</div>`
+}
+
+function retireActiveReport(message: string): void {
+  if (!activeReport) return
+  activeReport = undefined
+  element('#retirement-status').textContent = message
+  renderMechanism()
 }
 
 function retireIfChanged(nextValue: bigint): void {
   if (!activeReport || activeReport.measurement === nextValue) return
-  activeReport = undefined
-  element('#retirement-status').textContent = 'Previous result retired because the measurement changed.'
-  renderMechanism()
+  retireActiveReport('Previous result retired because the measurement changed.')
 }
 
 function readMeasurement(): bigint {
@@ -191,7 +197,9 @@ function shardCurrent(): void {
     status.textContent = 'Fresh report created. Each aggregator now has only its own envelope.'
     renderMechanism()
   } catch (error) {
+    activeReport = undefined
     status.textContent = error instanceof Error ? error.message : 'Unable to shard this measurement.'
+    renderMechanism()
   }
 }
 
@@ -207,7 +215,7 @@ function prepareCurrent(): void {
 function addCurrent(): void {
   if (!activeReport?.trace?.accepted || activeReport.added) return
   activeReport.added = true
-  records.push({ reported: activeReport.measurement, truth: activeReport.measurement, trace: activeReport.trace })
+  records.push({ reported: activeReport.measurement, truth: activeReport.measurement, report: activeReport.report, trace: activeReport.trace })
   element('#retirement-status').textContent = 'Accepted output shares added to the two aggregator tallies.'
   renderMechanism()
   renderTally()
@@ -217,14 +225,25 @@ function loadPayroll(): void {
   mode = 'sum'
   updateModeControls()
   const protocol = protocolFor('sum')
-  records = SYNTHETIC_PAYROLL.map(([, salary]) => {
-    const trace = protocol.prepare(VERIFY_KEY, CONTEXT, protocol.shard(CONTEXT, salary))
-    return { reported: salary, truth: salary, trace }
+  const prepared = SYNTHETIC_PAYROLL.map(([name, salary]) => {
+    const report = protocol.shard(CONTEXT, salary)
+    return { name, salary, report, trace: protocol.prepare(VERIFY_KEY, CONTEXT, report) }
   })
-  const [name, salary] = SYNTHETIC_PAYROLL.at(-1)!
-  const report = protocol.shard(CONTEXT, salary)
-  activeReport = { mode: 'sum', measurement: salary, report, trace: protocol.prepare(VERIFY_KEY, CONTEXT, report), added: true }
-  element('#retirement-status').textContent = `Loaded a labeled synthetic payroll. Last accepted report: ${name}.`
+  records = prepared.map(({ salary, report, trace }) => ({
+    reported: salary,
+    truth: salary,
+    report,
+    trace,
+  }))
+  const last = prepared.at(-1)!
+  activeReport = {
+    mode: 'sum',
+    measurement: last.salary,
+    report: last.report,
+    trace: last.trace,
+    added: true,
+  }
+  element('#retirement-status').textContent = `Loaded a labeled synthetic payroll. Last accepted report: ${last.name}.`
   renderMechanism()
   renderTally()
 }
@@ -439,8 +458,12 @@ export function initializeApp(): void {
     })
   })
   element<HTMLInputElement>('#measurement').addEventListener('input', (event) => {
-    const value = (event.currentTarget as HTMLInputElement).value
-    if (/^\d+$/.test(value)) retireIfChanged(BigInt(value))
+    const value = (event.currentTarget as HTMLInputElement).value.trim()
+    if (!/^\d+$/.test(value)) {
+      retireActiveReport('Previous result retired because the measurement is empty or invalid.')
+      return
+    }
+    retireIfChanged(BigInt(value))
   })
   element('#shard-button').addEventListener('click', shardCurrent)
   element('#prepare-button').addEventListener('click', prepareCurrent)

@@ -9,12 +9,12 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded PRs may cancel each other. A main or dispatch run may carry the
+  # Pages artifact, so cancelling it can leave a green commit undeployed.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -32,13 +32,12 @@ jobs:
       - name: Production build
         run: npm run build
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Accessibility and claims gate
         run: npm run test:a11y
-      - uses: actions/configure-pages@v6
+      - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-pages-artifact@v5
-        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -59,18 +58,34 @@ jobs:
       - name: Marker registry and mutation recipes
         run: npx vitest run src/ui/verdict-registry.test.ts
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Rendered-verdict coverage gate
         run: npm run test:verdicts
 
-  deploy:
+  configure-pages:
     needs: [build, verdict-coverage]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      # This privileged job runs no repository code or package lifecycle script.
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+  deploy:
+    needs: configure-pages
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
@@ -88,6 +103,7 @@ jobs:
       - id: meta
         uses: dependabot/fetch-metadata@v3
       - name: Merge a bump whose full gate passed
+        if: steps.meta.outputs.update-type != 'version-update:semver-major'
         run: |
           for attempt in 1 2 3; do
             gh pr merge --squash --delete-branch "$PR_URL" && merged=1 && break
