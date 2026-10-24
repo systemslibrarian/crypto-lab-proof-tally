@@ -60,5 +60,5 @@ test('changing a distributed scenario retires the prior batch and collector view
   await expect(page.locator('.dp-collector')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Request this batch again' })).toBeDisabled()
   await expect(page.locator('#distributed-status')).toContainText('separate teaching world')
-  await expect(page.locator('.scope-warning')).toContainText('outputs must not be combined')
+  await expect(page.locator('#panel-distributed .scope-warning')).toContainText('outputs must not be combined')
 })
