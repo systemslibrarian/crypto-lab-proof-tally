@@ -266,4 +266,6 @@ summary { padding: .75rem .9rem; font-weight: 700; cursor: pointer; }
   .dp-workbench, .dp-controls, .dp-summary-grid { grid-template-columns: 1fr; }
   .dp-workbench > .button { width: 100%; }
   .dp-controls .switch-row { justify-self: start; }
+  .trust-table table { table-layout: fixed; }
+  .trust-table :is(th, td) { overflow-wrap: anywhere; }
 }
