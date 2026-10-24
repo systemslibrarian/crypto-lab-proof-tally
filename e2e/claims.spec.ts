@@ -321,7 +321,7 @@ test('one committed distributed batch cannot release twice and scenario changes 
   await expect(page.getByRole('button', { name: 'Request this batch again' })).toBeDisabled()
   await expect(release).toBeEnabled()
   await expect(page.locator('#distributed-status')).toContainText('separate teaching world')
-  await expect(page.locator('.scope-warning')).toContainText('outputs must not be combined')
+  await expect(page.locator('#panel-distributed .scope-warning')).toContainText('outputs must not be combined')
   await release.click()
   await expectVerdict(page, 'dp-release', { text: 'ONE NOISY AGGREGATE RELEASED', state: 'pass' })
   await expect(release).toBeDisabled()
