@@ -1,0 +1,29 @@
+name: S04 full mutation replay
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s04-mutations-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutation-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright browser
+        run: npx playwright install chromium
+      - name: Replay every recorded verdict and claim mutation
+        run: npm run test:kills

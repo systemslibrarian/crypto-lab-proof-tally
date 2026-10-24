@@ -70,6 +70,39 @@ export async function driveAllStates(page: Page, viewportLabel: string): Promise
   await expect(page.locator('[data-claim="submitted-count"]')).toHaveText('12')
   await scan(page, `${viewportLabel}: payroll`)
 
+  await page.getByRole('tab', { name: 'Distributed DP' }).click()
+  await page.getByRole('button', { name: 'Run exact differencing' }).click()
+  await scan(page, `${viewportLabel}: exact aggregate disclosure`)
+
+  const scenario = page.getByLabel('Participant scenario')
+  const release = page.getByRole('button', { name: 'Commit and release once' })
+  await release.click()
+  await page.getByText('Open omniscient teaching trace').click()
+  await scan(page, `${viewportLabel}: distributed release and trace`)
+  await page.getByRole('button', { name: 'Request this batch again' }).click()
+  await scan(page, `${viewportLabel}: repeated release refused`)
+
+  await scenario.selectOption('below-threshold')
+  await release.click()
+  await scan(page, `${viewportLabel}: insufficient honest noise`)
+
+  await scenario.selectOption('precommit-dropout')
+  await release.click()
+  await scan(page, `${viewportLabel}: recommitted pre-report dropout`)
+
+  await scenario.selectOption('mid-report-dropout')
+  await release.click()
+  await scan(page, `${viewportLabel}: post-commit dropout refused`)
+
+  await scenario.selectOption('cap-overflow')
+  await release.click()
+  await scan(page, `${viewportLabel}: output-magnitude cap abort`)
+
+  await scenario.selectOption('threshold')
+  await page.getByLabel('Collude both aggregators').check()
+  await release.click()
+  await scan(page, `${viewportLabel}: colluding aggregators refused`)
+
   await page.getByRole('tab', { name: 'Break it' }).click()
   await page.getByRole('button', { name: 'Submit out-of-range report' }).click()
   await page.getByRole('button', { name: 'Flip proof share' }).click()
