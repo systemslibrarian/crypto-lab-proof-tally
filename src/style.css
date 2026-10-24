@@ -112,6 +112,7 @@ input[type="number"] { width: 100%; min-height: 44px; border: 1px solid var(--co
 .dp-controls > label:not(.switch-row) { font-weight: 700; }
 .dp-controls select { min-width: 0; min-height: 44px; border: 1px solid var(--control-border); border-radius: 6px; padding: .55rem .7rem; background-color: var(--bg); color: var(--text); }
 .dp-workbench > .action-row, .dp-workbench > .retirement, .dp-result { grid-column: 1 / -1; }
+.dp-result { min-width: 0; }
 .dp-result:empty { display: none; }
 .dp-summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .65rem; margin-top: .8rem; }
 .dp-summary-grid > div { min-width: 0; padding: .7rem; border-left: 2px solid var(--border); background-color: var(--surface-raised); }
@@ -266,6 +267,8 @@ summary { padding: .75rem .9rem; font-weight: 700; cursor: pointer; }
   .dp-workbench, .dp-controls, .dp-summary-grid { grid-template-columns: 1fr; }
   .dp-workbench > .button { width: 100%; }
   .dp-controls .switch-row { justify-self: start; }
+  .dp-trace table { table-layout: fixed; }
+  .dp-trace :is(th, td) { padding-inline: .25rem; overflow-wrap: anywhere; }
   .trust-table table { table-layout: fixed; }
   .trust-table :is(th, td) { overflow-wrap: anywhere; }
 }
