@@ -281,10 +281,11 @@ differential can, and that is `npm run test:kills` (`tools/verdict-kill.mjs`): i
 baseline, then applies each of the 64 recorded mutations in turn and requires the test that record
 names to go **red**. A survivor means the record is not evidence, whatever the source says and
 whatever ran. It is slow — one rebuild and one gate run per record — so it is a command rather than
-a routine CI step. S04 delivery runs it once through a temporary PR-only workflow, which is removed
-after its evidence is recorded. Run it locally after touching any oracle in `e2e/claims.spec.ts`.
-Delivery requires a green unmutated baseline and every one of the 64 mutations killed in the same
-replay session.
+a routine CI step. S04 delivery ran it once through a temporary PR-only workflow, which was removed
+after its evidence was recorded. [Hosted run 40123033025](https://github.com/systemslibrarian/crypto-lab-proof-tally/actions/runs/40123033025)
+reported `baseline green, 27 specs` and then `64/64 killed, 0 survived, 0 neither` for the reviewed
+tree. Run it locally after touching any oracle in `e2e/claims.spec.ts`. Delivery requires a green
+unmutated baseline and every one of the 64 mutations killed in the same replay session.
 
 Where a total is summed over a list, the oracle sums the rendered list rather than multiplying one
 entry by a count - the payroll tally, the valid-lie ledger, and the replay tally all derive their
