@@ -245,7 +245,7 @@ export async function auditRenderedVerdicts(page: Page): Promise<RenderedMarkers
     // The digits must not continue a word: "Prio3 checks" is a product name, not 3 checks.
     const UNITS = /(?<![A-Za-z])\d[\d,.]*\s*(?:B|KB|MB|bits?|bytes?|ops?|operations?|fields?|shares?|reports?|checks?|ms|s|×|x)\b/i
     const BARE = /^\$?\d[\d,]*(?:\.\d+)?$/
-    const RESULT_REGIONS = '#mechanism, #tally-output, #range-result, #tamper-result, #nonce-result, #collusion-result, #lie-result, #single-result, #kat-panel'
+    const RESULT_REGIONS = '#mechanism, #tally-output, #distributed-exact-result, #distributed-release-result, #range-result, #tamper-result, #nonce-result, #collusion-result, #lie-result, #single-result, #kat-panel'
 
     const verdicts: string[] = []
     const claims: string[] = []
@@ -354,10 +354,11 @@ export async function expectClaim(
 }
 
 /** Reads this page's controls off the rendered page, rather than trusting a list in a spec. */
-export async function controlOptions(page: Page): Promise<{ modes: string[]; tabs: string[] }> {
+export async function controlOptions(page: Page): Promise<{ modes: string[]; tabs: string[]; scenarios: string[] }> {
   return {
     modes: await page.locator('[data-mode]').evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).dataset.mode ?? '')),
     tabs: await page.locator('[role="tab"]').evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).dataset.panel ?? '')),
+    scenarios: await page.locator('#dp-scenario option').evaluateAll((nodes) => nodes.map((node) => (node as HTMLOptionElement).value)),
   }
 }
 
@@ -375,11 +376,11 @@ export async function controlOptions(page: Page): Promise<{ modes: string[]; tab
  *    changed (the verdict is retired), and empty (sharding is refused with a range error);
  *  - shard / combine / add and the payroll button: all four rail stages, and both the empty
  *    and the populated tally;
- *  - the exhibit tabs: all three panels;
+ *  - the exhibit tabs: all four panels, including every distributed-DP scenario;
  *  - the three attack buttons and both fixture buttons;
  *  - the collusion checkbox: checked and unchecked, since unchecking re-renders.
  *
- * Skipped, with the reason: the tab list's arrow/Home/End keys select the same three panels
+ * Skipped, with the reason: the tab list's arrow/Home/End keys select the same four panels
  * the clicks already visit, and the `<details>` in the limits panel toggles the visibility
  * of markup that is in the DOM either way — neither reaches a state this walk misses.
  *
@@ -403,7 +404,12 @@ export async function driveEveryState(page: Page): Promise<RenderedMarkers> {
 
   const controls = await controlOptions(page)
   expect(controls.modes, 'the measurement-type options this walk was written for').toEqual(['sum', 'count'])
-  expect(controls.tabs, 'the exhibit tabs this walk was written for').toEqual(['protocol', 'break', 'limits'])
+  expect(controls.tabs, 'the exhibit tabs this walk was written for').toEqual(['protocol', 'distributed', 'break', 'limits'])
+  expect(controls.scenarios, 'the distributed scenario controls must be nonempty and unique').not.toEqual([])
+  expect(new Set(controls.scenarios).size, 'the distributed scenario controls must be unique').toBe(controls.scenarios.length)
+  expect(controls.scenarios, 'the all-honest and threshold audit fixtures must remain reachable').toEqual(
+    expect.arrayContaining(['all-honest', 'threshold']),
+  )
 
   const measurement = page.getByLabel('Salary measurement')
   await page.getByRole('button', { name: 'Shard report' }).click()
@@ -428,6 +434,31 @@ export async function driveEveryState(page: Page): Promise<RenderedMarkers> {
   await page.getByRole('button', { name: 'Load 12-person payroll' }).click()
   await expect(page.locator('[data-claim="submitted-count"]')).toHaveText('12')
   await capture('payroll')
+
+  await page.getByRole('tab', { name: 'Distributed DP' }).click()
+  await page.getByRole('button', { name: 'Run exact differencing' }).click()
+  await capture('distributed exact disclosure')
+
+  const scenario = page.getByLabel('Participant scenario')
+  const release = page.getByRole('button', { name: 'Commit and release once' })
+  for (const value of controls.scenarios) {
+    await scenario.selectOption(value)
+    await release.click()
+    if (value === 'all-honest') {
+      await expect(page.locator('[data-verdict="dp-release"]')).toBeVisible()
+      await capture('distributed all-honest release')
+      await page.getByRole('button', { name: 'Request this batch again' }).click()
+      await capture('distributed repeat refused')
+    } else {
+      await capture(`distributed scenario ${value}`)
+    }
+  }
+
+  await scenario.selectOption('threshold')
+  await page.getByLabel('Collude both aggregators').check()
+  await release.click()
+  await capture('distributed aggregator collusion')
+  await page.getByLabel('Collude both aggregators').uncheck()
 
   await page.getByRole('tab', { name: 'Break it' }).click()
   await page.getByRole('button', { name: 'Submit out-of-range report' }).click()

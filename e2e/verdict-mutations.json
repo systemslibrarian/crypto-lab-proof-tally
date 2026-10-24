@@ -290,5 +290,245 @@
     "find": "const single = contributions[0]",
     "replace": "const single = contributions[0] + 999n",
     "kills": "claims.spec.ts - a replayed report re-verifies and only the intake registry stops it"
+  },
+  {
+    "marker": "dp-exact-disclosure",
+    "kind": "verdict",
+    "paints": "alarm",
+    "file": "src/ui/distributed.ts",
+    "find": "verdict('dp-exact-disclosure', 'alarm',",
+    "replace": "verdict('dp-exact-disclosure', 'pass',",
+    "kills": "claims.spec.ts - exact equal-size Prio3 releases disclose the zero-replaced contribution"
+  },
+  {
+    "marker": "dp-prio-accepted",
+    "kind": "verdict",
+    "paints": "pass",
+    "file": "src/ui/distributed.ts",
+    "find": "verdict('dp-prio-accepted', 'pass',",
+    "replace": "verdict('dp-prio-accepted', 'reject',",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-release",
+    "kind": "verdict",
+    "paints": "pass",
+    "file": "src/ui/distributed.ts",
+    "find": "verdict('dp-release', 'pass',",
+    "replace": "verdict('dp-release', 'reject',",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-repeat-refusal",
+    "kind": "verdict",
+    "paints": "reject",
+    "file": "src/ui/distributed.ts",
+    "find": "verdict('dp-repeat-refusal', 'reject',",
+    "replace": "verdict('dp-repeat-refusal', 'pass',",
+    "kills": "claims.spec.ts - one committed distributed batch cannot release twice and scenario changes retire it"
+  },
+  {
+    "marker": "dp-collusion-refusal",
+    "kind": "verdict",
+    "paints": "reject",
+    "file": "src/ui/distributed.ts",
+    "find": "verdict('dp-collusion-refusal', 'reject',",
+    "replace": "verdict('dp-collusion-refusal', 'pass',",
+    "kills": "claims.spec.ts - corruption, dropout, collusion and output-cap failures release no aggregate"
+  },
+  {
+    "marker": "dp-threshold-refusal",
+    "kind": "verdict",
+    "paints": "reject",
+    "file": "src/ui/distributed.ts",
+    "find": "verdict('dp-threshold-refusal', 'reject',",
+    "replace": "verdict('dp-threshold-refusal', 'pass',",
+    "kills": "claims.spec.ts - corruption, dropout, collusion and output-cap failures release no aggregate"
+  },
+  {
+    "marker": "dp-dropout-refusal",
+    "kind": "verdict",
+    "paints": "reject",
+    "file": "src/ui/distributed.ts",
+    "find": "verdict('dp-dropout-refusal', 'reject',",
+    "replace": "verdict('dp-dropout-refusal', 'pass',",
+    "kills": "claims.spec.ts - corruption, dropout, collusion and output-cap failures release no aggregate"
+  },
+  {
+    "marker": "dp-cap-refusal",
+    "kind": "verdict",
+    "paints": "reject",
+    "file": "src/ui/distributed.ts",
+    "find": "verdict('dp-cap-refusal', 'reject',",
+    "replace": "verdict('dp-cap-refusal', 'pass',",
+    "kills": "claims.spec.ts - corruption, dropout, collusion and output-cap failures release no aggregate"
+  },
+  {
+    "marker": "dp-exact-full",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-exact-full', result.fullAggregateUnits,",
+    "replace": "claim('dp-exact-full', result.fullAggregateUnits + 1n,",
+    "kills": "claims.spec.ts - exact equal-size Prio3 releases disclose the zero-replaced contribution"
+  },
+  {
+    "marker": "dp-exact-neighbor",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-exact-neighbor', result.replacementAggregateUnits,",
+    "replace": "claim('dp-exact-neighbor', result.replacementAggregateUnits + 1n,",
+    "kills": "claims.spec.ts - exact equal-size Prio3 releases disclose the zero-replaced contribution"
+  },
+  {
+    "marker": "dp-disclosed-contribution",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-disclosed-contribution', result.revealedTargetUnits,",
+    "replace": "claim('dp-disclosed-contribution', result.revealedTargetUnits + 1n,",
+    "kills": "claims.spec.ts - exact equal-size Prio3 releases disclose the zero-replaced contribution"
+  },
+  {
+    "marker": "dp-exact-raw-dollars",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-exact-raw-dollars', target.salaryDollars,",
+    "replace": "claim('dp-exact-raw-dollars', target.salaryDollars + 1n,",
+    "kills": "claims.spec.ts - exact equal-size Prio3 releases disclose the zero-replaced contribution"
+  },
+  {
+    "marker": "dp-exact-clipped-dollars",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-exact-clipped-dollars', clampedDollars,",
+    "replace": "claim('dp-exact-clipped-dollars', clampedDollars + 1n,",
+    "kills": "claims.spec.ts - exact equal-size Prio3 releases disclose the zero-replaced contribution"
+  },
+  {
+    "marker": "dp-row-raw-dollars",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-row-raw-dollars', row.suppliedSalaryDollars,",
+    "replace": "claim('dp-row-raw-dollars', row.suppliedSalaryDollars + 1n,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-row-clipped-dollars",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-row-clipped-dollars', row.clampedSalaryDollars,",
+    "replace": "claim('dp-row-clipped-dollars', row.clampedSalaryDollars + 1n,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-row-quantized-units",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-row-quantized-units', row.quantizedUnits,",
+    "replace": "claim('dp-row-quantized-units', row.quantizedUnits + 1n,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-row-activation",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-row-activation', row.activation, row.activation,",
+    "replace": "claim('dp-row-activation', row.activation === 'not-applicable' ? 'active' : 'not-applicable', row.activation,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-row-noise-units",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-row-noise-units', row.noiseUnits,",
+    "replace": "claim('dp-row-noise-units', row.noiseUnits + 1n,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-row-shifted-input",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-row-shifted-input', row.shiftedContributionUnits,",
+    "replace": "claim('dp-row-shifted-input', row.shiftedContributionUnits + 1n,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-accepted-count",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-accepted-count', built.length,",
+    "replace": "claim('dp-accepted-count', built.length + 1,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-participant-count",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-participant-count', collector.participantCount,",
+    "replace": "claim('dp-participant-count', collector.participantCount + 1,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-honest-count",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-honest-count', honestCount,",
+    "replace": "claim('dp-honest-count', honestCount + 1,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-protocol-noisy-units",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-protocol-noisy-units', collector.noisyQuantizedUnits,",
+    "replace": "claim('dp-protocol-noisy-units', collector.noisyQuantizedUnits + 1n,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-noisy-release-dollars",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-noisy-release-dollars', collector.noisyDollars,",
+    "replace": "claim('dp-noisy-release-dollars', collector.noisyDollars + 1n,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-exact-sum",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-exact-sum', teaching.exactQuantizedUnits,",
+    "replace": "claim('dp-exact-sum', teaching.exactQuantizedUnits + 1n,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-total-noise",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "claim('dp-total-noise', teaching.totalNoiseUnits,",
+    "replace": "claim('dp-total-noise', teaching.totalNoiseUnits + 1n,",
+    "kills": "claims.spec.ts - the distributed release is independently recomputable from every rendered contribution"
+  },
+  {
+    "marker": "dp-delta-activation",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "accounting.noneActiveDelta.numerator,\n      accounting.noneActiveDelta.denominator,\n    )",
+    "replace": "accounting.noneActiveDelta.numerator + 1n,\n      accounting.noneActiveDelta.denominator,\n    )",
+    "kills": "claims.spec.ts - the displayed distributed privacy accounting follows the declared parameters"
+  },
+  {
+    "marker": "dp-delta-cap",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "const capValue = accounting.capCouplingDeltaApproximation.toExponential(12)",
+    "replace": "const capValue = (accounting.capCouplingDeltaApproximation * 2).toExponential(12)",
+    "kills": "claims.spec.ts - the displayed distributed privacy accounting follows the declared parameters"
+  },
+  {
+    "marker": "dp-delta-total",
+    "kind": "claim",
+    "file": "src/ui/distributed.ts",
+    "find": "const totalValue = `${activationValue}+${capValue}`",
+    "replace": "const totalValue = `${activationValue}-${capValue}`",
+    "kills": "claims.spec.ts - the displayed distributed privacy accounting follows the declared parameters"
   }
 ]

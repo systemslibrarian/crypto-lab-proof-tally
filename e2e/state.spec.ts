@@ -33,3 +33,32 @@ test('the displayed last payroll report is the report actually included in the t
   expect(displayedNonce).toBeTruthy()
   expect(displayedNonce).toBe(talliedNonce)
 })
+
+test('the four exhibit tabs retain keyboard selection semantics', async ({ page }) => {
+  const protocol = page.getByRole('tab', { name: 'Protocol' })
+  await protocol.focus()
+  await protocol.press('ArrowRight')
+  await expect(page.getByRole('tab', { name: 'Distributed DP' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.locator('#panel-distributed')).toBeVisible()
+
+  await page.getByRole('tab', { name: 'Distributed DP' }).press('End')
+  await expect(page.getByRole('tab', { name: 'Limits & vectors' })).toHaveAttribute('aria-selected', 'true')
+  await page.getByRole('tab', { name: 'Limits & vectors' }).press('Home')
+  await expect(protocol).toHaveAttribute('aria-selected', 'true')
+  await protocol.press('ArrowLeft')
+  await expect(page.getByRole('tab', { name: 'Limits & vectors' })).toHaveAttribute('aria-selected', 'true')
+})
+
+test('changing a distributed scenario retires the prior batch and collector view', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Distributed DP' }).click()
+  await page.getByRole('button', { name: 'Commit and release once' }).click()
+  await expect(page.locator('.dp-collector')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Request this batch again' })).toBeEnabled()
+
+  await page.getByLabel('Participant scenario').selectOption('threshold')
+  await expect(page.locator('#distributed-release-result')).toBeEmpty()
+  await expect(page.locator('.dp-collector')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Request this batch again' })).toBeDisabled()
+  await expect(page.locator('#distributed-status')).toContainText('separate teaching world')
+  await expect(page.locator('.scope-warning')).toContainText('outputs must not be combined')
+})

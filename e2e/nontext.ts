@@ -27,7 +27,7 @@ export async function auditNonText(page: Page): Promise<NonTextFailure[]> {
     }
     const selector = (element: Element): string => element.id ? `#${element.id}` : `${element.tagName.toLowerCase()}.${Array.from(element.classList).join('.')}`
     const failures: NonTextFailure[] = []
-    const controls = Array.from(document.querySelectorAll('button,input,summary,a.cl-btn'))
+    const controls = Array.from(document.querySelectorAll('button,input,select,summary,a.cl-btn'))
     for (const control of controls) {
       if (!(control as HTMLElement).checkVisibility?.({ checkVisibilityCSS: true })) continue
       if (control instanceof HTMLInputElement && control.type === 'checkbox') continue

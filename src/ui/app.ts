@@ -7,9 +7,10 @@ import { tamperProofShare, type Prio3 } from '../prio3/core'
 import { createPrio3Count, createPrio3Sum } from '../prio3/instances'
 import { NonceRegistry } from '../prio3/replay'
 import type { PreparationTrace, Report } from '../prio3/types'
+import { initializeDistributedPanel } from './distributed'
 
 type Mode = 'sum' | 'count'
-type Panel = 'protocol' | 'break' | 'limits'
+type Panel = 'protocol' | 'distributed' | 'break' | 'limits'
 
 interface ActiveReport {
   mode: Mode
@@ -108,7 +109,7 @@ function verdict(marker: string, kind: 'pass' | 'reject' | 'alarm', heading: str
  * fails the build — and expectClaim() asserts the rendered text and `data-value` are the
  * same number before any test is allowed to read the attribute.
  */
-function claim(marker: string, value: bigint | number, rendered: string, tag: 'strong' | 'code' | 'span' = 'strong'): string {
+function claim(marker: string, value: bigint | number | string, rendered: string, tag: 'strong' | 'code' | 'span' = 'strong'): string {
   return `<${tag} data-claim="${marker}" data-value="${value}">${rendered}</${tag}>`
 }
 
@@ -448,6 +449,7 @@ function wireTabs(): void {
 
 export function initializeApp(): void {
   wireTabs()
+  initializeDistributedPanel({ claim, verdict, money })
   document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       const nextMode = button.dataset.mode as Mode

@@ -26,6 +26,10 @@ async function claimValues(page: Page, marker: string): Promise<bigint[]> {
   return (await page.locator(`[data-claim="${marker}"]`).evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).dataset.value ?? ''))).map(BigInt)
 }
 
+function units(value: bigint): string {
+  return `${value.toLocaleString('en-US')} units`
+}
+
 async function attribute(locator: Locator, name: string): Promise<string> {
   return (await locator.getAttribute(name)) ?? ''
 }
@@ -121,11 +125,207 @@ test('changing an input retires a verdict while a no-op preserves it', async ({ 
 })
 
 test('hidden panels remain unpainted until their real tabs are selected', async ({ page }) => {
+  await expect(page.locator('#panel-distributed')).toBeHidden()
   await expect(page.locator('#panel-break')).toBeHidden()
   await expect(page.locator('#panel-limits')).toBeHidden()
+  await page.getByRole('tab', { name: 'Distributed DP' }).click()
+  await expect(page.locator('#panel-distributed')).toBeVisible()
+  await expect(page.locator('#panel-protocol')).toBeHidden()
   await page.getByRole('tab', { name: 'Break it' }).click()
   await expect(page.locator('#panel-break')).toBeVisible()
   await expect(page.locator('#panel-protocol')).toBeHidden()
+})
+
+test('exact equal-size Prio3 releases disclose the zero-replaced contribution', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Distributed DP' }).click()
+  await page.getByRole('button', { name: 'Run exact differencing' }).click()
+
+  const full = await claimValue(page, 'dp-exact-full')
+  const neighbor = await claimValue(page, 'dp-exact-neighbor')
+  const disclosed = await claimValue(page, 'dp-disclosed-contribution')
+  const supplied = await claimValue(page, 'dp-exact-raw-dollars')
+  const clipped = await claimValue(page, 'dp-exact-clipped-dollars')
+  const panel = page.locator('#panel-distributed')
+  const clampMinimum = BigInt(await attribute(panel, 'data-clamp-min'))
+  const clampMaximum = BigInt(await attribute(panel, 'data-clamp-max'))
+  const grid = BigInt(await attribute(panel, 'data-grid-dollars'))
+  const independentlyClipped = supplied < clampMinimum ? clampMinimum : supplied > clampMaximum ? clampMaximum : supplied
+
+  expect(clipped).toBe(independentlyClipped)
+  expect(full - neighbor).toBe(disclosed)
+  expect(disclosed).toBe(independentlyClipped / grid)
+  await expectClaim(page, 'dp-exact-full', { value: full, text: units(full) })
+  await expectClaim(page, 'dp-exact-neighbor', { value: neighbor, text: units(neighbor) })
+  await expectClaim(page, 'dp-disclosed-contribution', { value: disclosed, text: units(disclosed) })
+  await expectClaim(page, 'dp-exact-raw-dollars', { value: supplied, text: money(supplied) })
+  await expectClaim(page, 'dp-exact-clipped-dollars', { value: clipped, text: money(clipped) })
+  await expectVerdict(page, 'dp-exact-disclosure', { text: 'EXACT TOTALS DISCLOSE THE REPLACED SLOT', state: 'alarm' })
+})
+
+test('the distributed release is independently recomputable from every rendered contribution', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Distributed DP' }).click()
+  await page.getByLabel('Participant scenario').selectOption('threshold')
+  await page.getByRole('button', { name: 'Commit and release once' }).click()
+  await page.getByText('Open omniscient teaching trace').click()
+
+  const raw = await claimValues(page, 'dp-row-raw-dollars')
+  const clipped = await claimValues(page, 'dp-row-clipped-dollars')
+  const quantized = await claimValues(page, 'dp-row-quantized-units')
+  const noise = await claimValues(page, 'dp-row-noise-units')
+  const shifted = await claimValues(page, 'dp-row-shifted-input')
+  const panel = page.locator('#panel-distributed')
+  const clampMinimum = BigInt(await attribute(panel, 'data-clamp-min'))
+  const clampMaximum = BigInt(await attribute(panel, 'data-clamp-max'))
+  const grid = BigInt(await attribute(panel, 'data-grid-dollars'))
+  const cap = BigInt(await attribute(panel, 'data-noise-cap-units'))
+  const maximumShifted = BigInt(await attribute(panel, 'data-max-shifted-input'))
+
+  expect(raw).toHaveLength(12)
+  expect(clipped).toEqual(raw.map((value) => value < clampMinimum ? clampMinimum : value > clampMaximum ? clampMaximum : value))
+  expect(quantized).toEqual(clipped.map((value) => value / grid))
+  expect(shifted).toEqual(quantized.map((value, index) => value + noise[index] + cap))
+  expect(shifted.every((value) => value >= 0n && value <= maximumShifted)).toBe(true)
+
+  const noisyUnits = shifted.reduce((sum, value) => sum + value, 0n) - BigInt(shifted.length) * cap
+  const exactUnits = quantized.reduce((sum, value) => sum + value, 0n)
+  const totalNoise = noise.reduce((sum, value) => sum + value, 0n)
+  const noisyDollars = noisyUnits * grid
+  const integrity = await page.locator('[data-dp-integrity]').evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).dataset.dpIntegrity))
+  const activation = await page.locator('[data-dp-activation]').evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).dataset.dpActivation ?? ''))
+  const honestCount = integrity.filter((value) => value === 'honest').length
+
+  expect(activation).toHaveLength(integrity.length)
+  activation.forEach((value, index) => {
+    if (integrity[index] === 'honest') expect(['active', 'inactive']).toContain(value)
+    else expect(value).toBe('not-applicable')
+  })
+
+  await expectClaim(page, 'dp-row-raw-dollars', { value: raw, text: raw.map(money) })
+  await expectClaim(page, 'dp-row-clipped-dollars', { value: clipped, text: clipped.map(money) })
+  await expectClaim(page, 'dp-row-quantized-units', { value: quantized, text: quantized.map(units) })
+  await expectClaim(page, 'dp-row-activation', { value: activation, text: activation })
+  await expectClaim(page, 'dp-row-noise-units', { value: noise, text: noise.map(units) })
+  await expectClaim(page, 'dp-row-shifted-input', { value: shifted, text: shifted.map(units) })
+  await expectClaim(page, 'dp-accepted-count', { value: shifted.length, text: String(shifted.length) })
+  await expectClaim(page, 'dp-participant-count', { value: shifted.length, text: String(shifted.length) })
+  await expectClaim(page, 'dp-honest-count', { value: honestCount, text: String(honestCount) })
+  await expectClaim(page, 'dp-protocol-noisy-units', { value: noisyUnits, text: units(noisyUnits) })
+  await expectClaim(page, 'dp-noisy-release-dollars', { value: noisyDollars, text: noisyDollars < 0n ? `−${money(-noisyDollars)}` : money(noisyDollars) })
+  await expectClaim(page, 'dp-exact-sum', { value: exactUnits, text: units(exactUnits) })
+  await expectClaim(page, 'dp-total-noise', { value: totalNoise, text: units(totalNoise) })
+  await expectVerdict(page, 'dp-prio-accepted', { text: 'ALL COMMITTED REPORTS VERIFIED', state: 'pass' })
+  await expectVerdict(page, 'dp-release', { text: 'ONE NOISY AGGREGATE RELEASED', state: 'pass' })
+
+  const collector = page.locator('.dp-collector')
+  await expect(collector.locator('[data-claim="dp-exact-sum"], [data-claim="dp-total-noise"], [data-claim^="dp-row-"]')).toHaveCount(0)
+  await expect(collector.locator('[data-claim="dp-honest-count"], [data-claim^="dp-delta-"]')).toHaveCount(0)
+  await expect(collector).toContainText('No exact total')
+})
+
+test('the displayed distributed privacy accounting follows the declared parameters', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Distributed DP' }).click()
+  await page.getByLabel('Participant scenario').selectOption('threshold')
+  await page.getByRole('button', { name: 'Commit and release once' }).click()
+
+  const panel = page.locator('#panel-distributed')
+  const honest = Number(await claimValue(page, 'dp-honest-count'))
+  const cohort = Number(await claimValue(page, 'dp-participant-count'))
+  const betaNumerator = BigInt(await attribute(panel, 'data-activation-numerator'))
+  const betaDenominator = BigInt(await attribute(panel, 'data-activation-denominator'))
+  const cap = Number(await attribute(panel, 'data-noise-cap-units'))
+  const sensitivity = Number(await attribute(panel, 'data-sensitivity-units'))
+  const epsilon = Number(await attribute(panel, 'data-epsilon'))
+  const declaredScale = Number(await attribute(panel, 'data-noise-scale'))
+  const inactive = betaDenominator - betaNumerator
+  const activationNumerator = inactive ** BigInt(honest)
+  const activationDenominator = betaDenominator ** BigInt(honest)
+  const activationValue = `${activationNumerator}/${activationDenominator}`
+  expect(declaredScale).toBe(sensitivity / epsilon)
+  const scale = declaredScale
+  const perDrawTail = (2 * Math.exp(-cap / scale)) / (Math.exp(1 / scale) + 1)
+  const coupling = (1 + Math.exp(epsilon)) * cohort * perDrawTail
+  const couplingValue = coupling.toExponential(12)
+
+  const cards = panel.locator('.dp-parameter-grid article')
+  const clampMinimum = BigInt(await attribute(panel, 'data-clamp-min'))
+  const clampMaximum = BigInt(await attribute(panel, 'data-clamp-max'))
+  const grid = BigInt(await attribute(panel, 'data-grid-dollars'))
+  const minimumHonest = Number(await attribute(panel, 'data-minimum-honest'))
+  const advertisedNumerator = inactive ** BigInt(minimumHonest)
+  const advertisedDenominator = betaDenominator ** BigInt(minimumHonest)
+  await expect(cards.nth(0)).toContainText(`${money(clampMinimum)} to ${money(clampMaximum)}`)
+  await expect(cards.nth(0)).toContainText(`${money(grid)} units`)
+  await expect(cards.nth(1)).toContainText(`sensitivity is ${sensitivity} units`)
+  await expect(cards.nth(2)).toContainText(`ε = ${epsilon}`)
+  await expect(cards.nth(2)).toContainText(`scale-${declaredScale}`)
+  await expect(cards.nth(2)).toContainText(`probability ${betaNumerator}/${betaDenominator}`)
+  await expect(cards.nth(3)).toContainText(`At least ${minimumHonest} honest clients`)
+  await expect(cards.nth(3)).toContainText(`${advertisedNumerator.toLocaleString('en-US')} / ${advertisedDenominator.toLocaleString('en-US')}`)
+
+  await expectClaim(page, 'dp-delta-activation', {
+    value: activationValue,
+    text: `${activationNumerator.toLocaleString('en-US')} / ${activationDenominator.toLocaleString('en-US')}`,
+  })
+  await expectClaim(page, 'dp-delta-cap', { value: couplingValue, text: coupling.toExponential(3) })
+  await expectClaim(page, 'dp-delta-total', {
+    value: `${activationValue}+${couplingValue}`,
+    text: `${activationNumerator.toLocaleString('en-US')} / ${activationDenominator.toLocaleString('en-US')} + ${coupling.toExponential(3)}`,
+  })
+})
+
+test('corruption, dropout, collusion and output-cap failures release no aggregate', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Distributed DP' }).click()
+  const scenario = page.getByLabel('Participant scenario')
+  const release = page.getByRole('button', { name: 'Commit and release once' })
+
+  await scenario.selectOption('below-threshold')
+  await release.click()
+  await expectVerdict(page, 'dp-threshold-refusal', { text: 'NO ADVERTISED RELEASE', state: 'reject' })
+  await expect(page.locator('[data-claim="dp-protocol-noisy-units"]')).toHaveCount(0)
+
+  await scenario.selectOption('all-corrupt')
+  await release.click()
+  await expectVerdict(page, 'dp-threshold-refusal', { text: 'NO ADVERTISED RELEASE', state: 'reject' })
+  await expect(page.locator('[data-claim="dp-protocol-noisy-units"]')).toHaveCount(0)
+
+  await scenario.selectOption('mid-report-dropout')
+  await release.click()
+  await expectVerdict(page, 'dp-dropout-refusal', { text: 'WHOLE BATCH ABORTED', state: 'reject' })
+  await expect(page.locator('[data-claim="dp-protocol-noisy-units"]')).toHaveCount(0)
+
+  await scenario.selectOption('cap-overflow')
+  await release.click()
+  await expectVerdict(page, 'dp-cap-refusal', { text: 'WHOLE BATCH ABORTED', state: 'reject' })
+  await expect(page.locator('[data-claim="dp-protocol-noisy-units"]')).toHaveCount(0)
+
+  await scenario.selectOption('threshold')
+  await page.getByLabel('Collude both aggregators').check()
+  await release.click()
+  await expectVerdict(page, 'dp-collusion-refusal', { text: 'NO PRIVACY CLAIM', state: 'reject' })
+  await expect(page.locator('[data-claim="dp-protocol-noisy-units"]')).toHaveCount(0)
+})
+
+test('one committed distributed batch cannot release twice and scenario changes retire it', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Distributed DP' }).click()
+  const release = page.getByRole('button', { name: 'Commit and release once' })
+  await release.click()
+  await expectVerdict(page, 'dp-release', { text: 'ONE NOISY AGGREGATE RELEASED', state: 'pass' })
+  await expect(release).toBeDisabled()
+
+  await page.getByRole('button', { name: 'Request this batch again' }).click()
+  await expectVerdict(page, 'dp-repeat-refusal', { text: 'NO SECOND RELEASE', state: 'reject' })
+  await expect(page.locator('[data-claim="dp-protocol-noisy-units"]')).toHaveCount(0)
+
+  await page.getByLabel('Participant scenario').selectOption('precommit-dropout')
+  await expect(page.locator('#distributed-release-result')).toBeEmpty()
+  await expect(page.getByRole('button', { name: 'Request this batch again' })).toBeDisabled()
+  await expect(release).toBeEnabled()
+  await expect(page.locator('#distributed-status')).toContainText('separate teaching world')
+  await expect(page.locator('.scope-warning')).toContainText('outputs must not be combined')
+  await release.click()
+  await expectVerdict(page, 'dp-release', { text: 'ONE NOISY AGGREGATE RELEASED', state: 'pass' })
+  await expect(release).toBeDisabled()
+  await expectClaim(page, 'dp-participant-count', { value: 10, text: '10' })
 })
 
 test('a well-formed lie passes every check and still changes the truth', async ({ page }) => {
