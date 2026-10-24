@@ -13,6 +13,13 @@ byte `D=1`. Its deterministic tests are pinned to CFRG reference commit
 [`e1d1e1c3854a34589c0c2d9b899a48533cac9004`](https://github.com/cfrg/draft-irtf-cfrg-vdaf/tree/e1d1e1c3854a34589c0c2d9b899a48533cac9004),
 tagged `draft-irtf-cfrg-vdaf-22`.
 
+A separate distributed differential-privacy lesson composes real `Prio3Sum` reports with bounded,
+participant-contributed discrete-Laplace noise. It clamps and quantizes every record before
+aggregation, fixes replace-one adjacency and sensitivity, samples with the exact integer-only
+Canonne-Kamath-Steinke algorithms, and releases at most once from an all-or-nothing committed
+cohort. This is a Shi-inspired teaching composition, not an implementation of Shi et al.'s private
+stream aggregation system, DAP, or shuffle DP.
+
 This is not production crypto. It is browser-based teaching code, is not constant-time, and does not
 implement DAP transport or persistence. All three roles share one browser process, where the fixed
 demonstration verification key is visible to client code; this does not reproduce the draft's
@@ -32,13 +39,23 @@ verification-key secrecy or secure-channel assumptions.
 	Every Prio3 check passes and the aggregate is still false.
 5. **One-report disclosure** - demonstrate that private input shares do not make a one-person aggregate
 	differentially private.
-6. **Pinned evidence** - run three browser-visible checks against the official Count and Sum vectors.
+6. **Exact-release differencing** - run two real, equal-size twelve-slot `Prio3Sum` queries with one
+	bounded slot replaced by zero, and recover that slot by subtracting the exact totals.
+7. **Distributed-noise release** - clamp salaries to `$0..$250,000`, floor them to `$5,000` units,
+	contribute independently activated exact discrete-Laplace noise inside the reports, and expose only
+	the one noisy aggregate to the collector.
+8. **Pinned evidence** - run three browser-visible checks against the official Count and Sum vectors.
 
 ## When to Use It
 
 Use a VDAF when multiple non-colluding aggregators need an aggregate over privately submitted,
 well-formed measurements. Prio3 is useful for bounded sums, counters, and related telemetry where a
 malformed report must not poison the result.
+
+Use the distributed lesson to study how output privacy needs an independently specified adjacency,
+sensitivity, sampler, honest-contributor threshold, dropout rule, privacy ledger, and collector
+view in addition to secure aggregation. Its deliberately small cohort and large visible error make
+the privacy-utility tradeoff inspectable rather than deployment-ready.
 
 Do not use this lab as a deployment library. Do not use Prio3 alone when the output also needs
 differential privacy, when both aggregators may collude, or when authenticity and truthfulness of the
@@ -63,6 +80,52 @@ shares, and combines accepted output shares without a backend.
 - If both aggregators collude, they can reconstruct each input.
 - A well-formed lie remains valid because the proof checks structure, not external truth.
 - An aggregate over one report reveals that report unless a separate privacy mechanism is applied.
+- Exact full-cohort and fixed-size replacement totals disclose the replaced bounded contribution by
+  subtraction; input-share secrecy does not change that output fact.
+- The exact-disclosure control and distributed-noise control are alternative teaching worlds. Once
+  an exact overlapping total has been released, adding noise to a later answer cannot restore the
+  privacy that the exact releases already lost.
+- Each selectable participant scenario is likewise a separate counterfactual teaching world. The
+  page retires the prior view when a control changes; its outputs must not be combined as repeated
+  answers about the fixed synthetic payroll. A real deployment must compose every answer over
+  overlapping records.
+- The distributed lesson clamps each salary to `$0..$250,000`, floors it to `$5,000` units, and uses
+  fixed-size replace-one sensitivity `50`. Changing the record unit or adjacency changes the
+  calibration.
+- Each honest included client activates a full `Lap_Z(50)` draw with probability `9/10`. Exactly six
+  honest clients make the no-activation event `10^-6`; at least six make it at most `10^-6`, five
+  make it `10^-5`, and zero make the bound vacuous. Accepted reports do not prove which clients are
+  honest.
+- A sampled magnitude of `4096` is allowed. A magnitude above `4096`, an incomplete cohort, a
+  duplicate, or a rejected report aborts the batch without releasing a total. The UI abandons the
+  batch after a cap failure and never resamples that draw; the low-level report builder itself is not
+  a durable attempt ledger. The output-magnitude cap adds the analytic total-variation coupling
+  bound `(1 + exp(epsilon)) * eta` to delta, where
+  `eta = n * 2*exp(-B/50)/(exp(1/50)+1)`. The separately displayed decimal is explicitly a
+  binary64 approximation to that expression; the exact rejection
+  sampler itself has unbounded but almost-surely terminating runtime and no hidden attempt ceiling.
+- The shift by `4096` lets `Prio3Sum(8242)` prove only the combined input is in range. It does not
+  prove a truthful salary, correct clipping, a valid value/noise decomposition, an activation coin,
+  or independent random sampling. Corrupt clients can submit valid false values or fixed noise and
+  destroy utility.
+- The common Prio3 context binds the batch identifier, full ordered roster, and fixed mechanism, but
+  a report carries no authenticated sender-to-slot credential. `participantId` and `integrity` are
+  wrapper metadata in this counterfactual harness; the latter is explicitly omniscient and neither
+  is attested by Prio3. Production intake must authenticate one sender to one committed roster slot
+  before invoking the release policy.
+- Corrupt submissions must be fixed before the adversary can learn the honest clients' hidden
+  activation bits or noise. An adversary allowed to observe that noise and then choose a canceling
+  valid input is outside this privacy argument; a real protocol must enforce the required commit and
+  message ordering.
+- Both aggregators colluding reconstruct each shifted client contribution. Aggregate-view privacy
+  requires at least one honest aggregator that does not collude, enforcement of the common committed
+  cohort and one-release ledger, and no later disclosure of the honest noise. Fewer than six honest
+  noise contributors invalidate the advertised activation-failure term `delta <= 10^-6`, though an
+  `h`-specific weaker term may remain; the displayed total also adds the cap-coupling term.
+- A committed batch has one release. Releasing it again, changing subsets, or answering overlapping
+  exact queries needs explicit composition accounting; a nonce registry alone does not stop
+  differencing. The browser ledger is volatile teaching state: a reload resets it, and the lab does
+  not implement durable, atomic, multi-worker enforcement.
 - Zero accepted reports have no defined aggregate and are refused.
 
 ## Real-World Usage
@@ -79,6 +142,10 @@ Primary references:
 - [Prio: Private, Robust, and Scalable Computation of Aggregate Statistics](https://www.usenix.org/conference/nsdi17/technical-sessions/presentation/corrigan-gibbs)
 - [Zero-Knowledge Proofs on Secret-Shared Data via Fully Linear PCPs](https://eprint.iacr.org/2019/188)
 - [Distributed Aggregation Protocol](https://datatracker.ietf.org/doc/html/draft-ietf-ppm-dap)
+- [Privacy-Preserving Aggregation of Time-Series Data](https://www.ndss-symposium.org/wp-content/uploads/2017/09/shi.pdf)
+- [The Discrete Gaussian for Differential Privacy](https://arxiv.org/abs/2004.00010) - its Algorithms
+  1 and 2 provide the exact Bernoulli and discrete-Laplace sampler used here
+- [NIST SP 800-226, Guidelines for Evaluating Differential Privacy Guarantees](https://doi.org/10.6028/NIST.SP.800-226)
 
 ## How to Run Locally
 
@@ -110,26 +177,32 @@ npm run build
 npx playwright install chromium
 npm run test:a11y
 npm run test:verdicts
-npm run test:kills     # slow; replays all 35 recorded mutations
+npm run test:kills     # slow; replays all 64 recorded mutations
 ```
 
-The correctness suite currently contains 62 Vitest tests. It includes the official
+The suite currently contains 151 Vitest tests. It includes the official
 `XofTurboShake128`, `Prio3Count_0`, and `Prio3Sum_0` known-answer fixtures, exact serialized verifier
 shares, malformed-input rejection, proof-share tampering, aggregation, Field64 boundaries, the
 replay behaviour: that preparation accepts a replayed report a second time, that the unrefused replay
 doubles the aggregate, and that the registry admits a nonce exactly once - and the marker
-registry described below, plus strict 16-byte report-nonce handling and input snapshotting.
+registry described below, plus strict 16-byte report-nonce handling and input snapshotting. Sixty
+focused S04 tests cover exact integer sampling, both cap endpoints, cap abort without retry,
+clamp/quantization and wrap bounds, exact differencing, real `Prio3Sum(8242)` preparation, signed
+post-unshard decoding, all-or-nothing delivery, corrupt/honest thresholds, one-release state, and
+canonical binding of the batch, ordered cohort and every fixed mechanism parameter.
 
-The Playwright gate contains 26 tests. Two drive every reachable exhibit at desktop and 380px with
+The Playwright gate contains 33 tests. Two drive every reachable exhibit at desktop and 380px with
 reduced motion, axe WCAG 2.1 A/AA, independent text-contrast and control-boundary oracles, and reflow
-checks. Two state-integrity tests prove invalid input retires an actionable report and the displayed
-last payroll report is the exact report included in the tally. Fifteen claims tests independently
+checks. Four state-integrity tests also cover keyboard navigation across all four tabs and retirement
+of a distributed collector view when its scenario changes. Twenty claims tests independently
 recompute the displayed verifier sum, payroll aggregate,
 range boundary, KAT count and summary word, retirement behavior, the sharded envelopes, the replayed
 tally summed over its rendered contributions, the preparation verdict against the displayed combined
 verifier, the tally match word against the two displayed totals, the gadget-consistency refusal, the
-colluded reconstruction, and both negative claims. Seven verdict-coverage tests, and one assertion
-that runs after all of them, are described below.
+colluded reconstruction, both negative claims, exact-release differencing, every distributed input
+transformation, the noisy aggregate, and both additive delta terms. They also prove that corruption,
+dropout, collusion, cap overflow and a repeated batch release produce no aggregate. Seven
+verdict-coverage tests, and one assertion that runs after all of them, are described below.
 
 ## Every Verdict and Every Measurement Is Computed, Marked, and Mutated
 
@@ -137,23 +210,32 @@ Nothing this page prints as an outcome is a fixed string, and nothing it prints 
 unchecked. Each rendered verdict branches on a value the page computed and carries a `data-verdict`
 marker; each rendered measurement carries a `data-claim` marker and the `data-value` behind the words.
 
-Verdicts (12): `preparation` · `tally-match` · `range-attack` · `tamper-attack` · `replay-vdaf` ·
+Verdicts (20): `preparation` · `tally-match` · `range-attack` · `tamper-attack` · `replay-vdaf` ·
 `replay-intake` · `collusion` · `valid-lie` · `valid-lie-row` · `single-report` · `kat-summary` ·
-`kat-row`
+`kat-row` · `dp-exact-disclosure` · `dp-prio-accepted` · `dp-release` · `dp-threshold-refusal` ·
+`dp-dropout-refusal` · `dp-repeat-refusal` · `dp-collusion-refusal` · `dp-cap-refusal`
 
-Measurements (23): `report-measurement` · `leader-share` · `helper-share` · `verifier-a` ·
+Measurements (44): `report-measurement` · `leader-share` · `helper-share` · `verifier-a` ·
 `verifier-b` · `combined-verifier` · `submitted-count` · `accepted-count` · `rejected-count` ·
 `protocol-aggregate` · `plain-sum` · `collusion-share-a` · `collusion-share-b` · `lie-row-reported` ·
 `lie-row-sealed` · `lie-aggregate` · `lie-truth` · `single-input` · `single-aggregate` · `kat-count` ·
-`replay-contribution` · `replay-total` · `replay-tally-before`
+`replay-contribution` · `replay-total` · `replay-tally-before` · `dp-exact-full` ·
+`dp-exact-neighbor` · `dp-disclosed-contribution` · `dp-exact-raw-dollars` ·
+`dp-exact-clipped-dollars` · `dp-row-raw-dollars` · `dp-row-clipped-dollars` ·
+`dp-row-quantized-units` · `dp-row-activation` · `dp-row-noise-units` · `dp-row-shifted-input` ·
+`dp-accepted-count` ·
+`dp-participant-count` · `dp-honest-count` · `dp-protocol-noisy-units` ·
+`dp-noisy-release-dollars` · `dp-exact-sum` · `dp-total-noise` · `dp-delta-activation` ·
+`dp-delta-cap` · `dp-delta-total`
 
 Coverage is derived by walking the rendered page, not from a list kept by hand. `driveEveryState()`
 visits **every option of every control that changes what renders** - both measurement types, the
-measurement input unchanged, changed and empty, all three tabs, both fixture buttons, all three
-attack buttons, and the collusion switch in both positions - each control on its own rather than the
+measurement input unchanged, changed and empty, all four tabs, both fixture buttons, all three
+attack buttons, all seven distributed scenarios, exact differencing, successful and repeated
+release, and both collusion switches in both positions - each control on its own rather than the
 cross-product. It is not a test; it is the denominator the rules below are applied to, so a state it
-never reaches is outside all of them. The tab list's arrow keys and the limits panel's `<details>`
-are skipped on purpose: they reach no markup the walk does not already hold.
+never reaches is outside all of them. The tab list's arrow keys and the limits/trace `<details>`
+controls are skipped on purpose: they change visibility but introduce no new rendered markup.
 
 `e2e/verdicts.spec.ts` drives that walk, and it and the teardown that runs after every test
 fail when:
@@ -196,11 +278,14 @@ expected value is derived per run, and writing one into the registry would put b
 literal a derived oracle exists to remove. On an unmutated page a tautological `expectClaim()` is
 observationally identical to a correct one, so no rule read on a green run can separate them. Only a
 differential can, and that is `npm run test:kills` (`tools/verdict-kill.mjs`): it re-establishes the
-baseline, then applies each of the 35 recorded mutations in turn and requires the test that record
+baseline, then applies each of the 64 recorded mutations in turn and requires the test that record
 names to go **red**. A survivor means the record is not evidence, whatever the source says and
 whatever ran. It is slow — one rebuild and one gate run per record — so it is a command rather than
-a CI step; run it after touching any oracle in `e2e/claims.spec.ts`. Last full run: **35 killed, 0
-survived**, baseline green in the same session.
+a routine CI step. S04 delivery ran it once through a temporary PR-only workflow, which was removed
+after its evidence was recorded. [Hosted run 40123033025](https://github.com/systemslibrarian/crypto-lab-proof-tally/actions/runs/40123033025)
+reported `baseline green, 27 specs` and then `64/64 killed, 0 survived, 0 neither` for the reviewed
+tree. Run it locally after touching any oracle in `e2e/claims.spec.ts`. Delivery requires a green
+unmutated baseline and every one of the 64 mutations killed in the same replay session.
 
 Where a total is summed over a list, the oracle sums the rendered list rather than multiplying one
 entry by a count - the payroll tally, the valid-lie ledger, and the replay tally all derive their
@@ -214,7 +299,7 @@ whole gate green. They are now marked — `replay-tally-before` for the figure t
 and `replay-total` reused for the figure it moves to, since that is the same claim the ledger states
 — and `expectClaim()` holds both `replay-total` nodes to the one derived total.
 
-Each of the thirty-five markers has a §4.1c mutation recorded with the recipe that produces it:
+Each of the sixty-four markers has a §4.1c mutation recorded with the recipe that produces it:
 
 ```bash
 node tools/verdict-mutation.mjs list
@@ -251,7 +336,9 @@ teaches and is a deliberate design decision rather than a harness fix.
 
 Prio3Sum proof work grows with the configured bit width. This lab uses a 24-bit payroll bound so each
 interaction remains immediate while still exercising the real circuit, polynomial, XOF, and verifier
-paths. It makes no production performance claim.
+paths. The distributed lesson's stronger six-honest activation bound deliberately adds noise whose
+scale is large relative to a twelve-person payroll; the page reports the observed error and makes no
+production utility or performance claim.
 
 ---
 

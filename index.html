@@ -9,10 +9,10 @@
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="An interactive Prio3Count and Prio3Sum lab using the Field64 and TurboSHAKE128 algorithms from draft-irtf-cfrg-vdaf-22." />
+    <meta name="description" content="An interactive Prio3Count and Prio3Sum lab with a bounded distributed differential-privacy lesson." />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Proof Tally — crypto-lab" />
-    <meta property="og:description" content="Split measurements, verify fully linear proofs, reject malformed reports, and collect a private aggregate with Prio3." />
+    <meta property="og:description" content="Split measurements, verify fully linear proofs, and compare exact aggregation with a bounded distributed-noise release." />
     <meta property="og:url" content="https://systemslibrarian.github.io/crypto-lab-proof-tally/" />
     <meta name="twitter:card" content="summary" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%A7%AE</text></svg>" />
@@ -45,7 +45,7 @@
           <p class="eyebrow">PRIVATE AGGREGATION, PROVEN</p>
           <h1 class="cl-hero-title">Proof Tally</h1>
           <p class="cl-hero-sub">Verifiable aggregation · Prio3 · VDAF</p>
-          <p class="cl-hero-desc">Split a salary into two shares, send each with part of a fully linear proof, and watch two aggregators accept the total without either reading the report.</p>
+          <p class="cl-hero-desc">Split a salary into two shares, verify it without exposing the input, then compare an exact total with a bounded distributed-noise release.</p>
         </div>
         <aside class="cl-hero-why" aria-label="Why it matters">
           <span class="cl-hero-why-label">WHY IT MATTERS</span>
@@ -61,6 +61,7 @@
       <nav class="exhibit-nav" aria-label="Proof Tally exhibits">
         <div class="tab-list" role="tablist" aria-label="Exhibits">
           <button class="tab active" id="tab-protocol" role="tab" aria-selected="true" aria-controls="panel-protocol" data-panel="protocol"><i data-lucide="split" aria-hidden="true"></i> Protocol</button>
+          <button class="tab" id="tab-distributed" role="tab" aria-selected="false" aria-controls="panel-distributed" data-panel="distributed" tabindex="-1"><i data-lucide="users" aria-hidden="true"></i> Distributed DP</button>
           <button class="tab" id="tab-break" role="tab" aria-selected="false" aria-controls="panel-break" data-panel="break" tabindex="-1"><i data-lucide="triangle-alert" aria-hidden="true"></i> Break it</button>
           <button class="tab" id="tab-limits" role="tab" aria-selected="false" aria-controls="panel-limits" data-panel="limits" tabindex="-1"><i data-lucide="scan-search" aria-hidden="true"></i> Limits &amp; vectors</button>
         </div>
@@ -110,8 +111,65 @@
           </section>
         </section>
 
+        <section id="panel-distributed" class="panel" role="tabpanel" aria-labelledby="tab-distributed" tabindex="0" data-clamp-min="0" data-clamp-max="250000" data-grid-dollars="5000" data-sensitivity-units="50" data-epsilon="1" data-noise-scale="50" data-activation-numerator="9" data-activation-denominator="10" data-noise-cap-units="4096" data-max-shifted-input="8242" data-minimum-honest="6" hidden>
+          <div class="section-heading"><span class="section-number">03</span><div><h2>One noisy release, contributed before collection</h2><p>Exact secure aggregation hides each input from one server but can still disclose it through related totals. This bounded lesson lets honest clients add independently sampled discrete-Laplace noise inside their Prio3 reports.</p></div></div>
+
+          <section class="dp-parameter-grid" aria-label="Distributed differential privacy parameters">
+            <article><span>RECORD BOUND</span><strong id="dp-parameter-record-bound">$0 to $250,000</strong><p id="dp-parameter-record-detail">Clamp first, then floor to $5,000 units.</p></article>
+            <article><span>ADJACENCY</span><strong>Fixed-size replace-one</strong><p id="dp-parameter-adjacency-detail">One slot may change from 0 through 50 units, so sensitivity is 50 units.</p></article>
+            <article><span>NOISE</span><strong id="dp-parameter-noise">Discrete Laplace · ε = 1</strong><p id="dp-parameter-noise-detail">Each honest client activates a full scale-50 draw with probability 9/10.</p></article>
+            <article><span>ADVERTISED THRESHOLD</span><strong id="dp-parameter-threshold">At least 6 honest clients</strong><p id="dp-parameter-threshold-detail">The no-honest-noise event is at most 1 / 1,000,000, plus the disclosed output-magnitude-cap coupling term.</p></article>
+          </section>
+
+          <section class="dp-workbench" aria-labelledby="exact-release-title">
+            <div class="dp-copy"><p class="eyebrow alarm-text">INSECURE EXACT-RELEASE WORLD</p><h3 id="exact-release-title">Subtract two exact 12-slot totals</h3><p>Both queries use real Prio3Sum reports. The second keeps every slot but replaces Lane's bounded value with zero. Their difference reveals Lane's clipped, quantized contribution.</p></div>
+            <button type="button" class="button danger" id="dp-exact-button">Run exact differencing</button>
+            <div id="distributed-exact-result" class="dp-result" role="status" aria-live="polite"></div>
+          </section>
+
+          <section class="dp-workbench" aria-labelledby="distributed-release-title">
+            <div class="dp-copy"><p class="eyebrow">BOUNDED TEACHING ADAPTATION</p><h3 id="distributed-release-title">Commit one cohort, release once</h3><p>The collector receives one noisy aggregate. Honest-count labels and the per-client decomposition below are an omniscient teaching trace, not information the collector is allowed to receive.</p></div>
+            <div class="dp-controls">
+              <label for="dp-scenario">Participant scenario</label>
+              <select id="dp-scenario">
+                <option value="all-honest">12 committed · 12 honest</option>
+                <option value="threshold">12 committed · 6 honest · 6 corrupt</option>
+                <option value="below-threshold">12 committed · 5 honest · 7 corrupt</option>
+                <option value="precommit-dropout">10 recommitted before reporting · 6 honest</option>
+                <option value="mid-report-dropout">12 committed · one report reaches only one aggregator</option>
+                <option value="all-corrupt">12 committed · no honest noise</option>
+                <option value="cap-overflow">12 committed · forced output-cap overflow</option>
+              </select>
+              <label class="switch-row"><input id="dp-collusion" type="checkbox" /><span>Collude both aggregators</span></label>
+            </div>
+            <div class="action-row">
+              <button type="button" class="button primary" id="dp-release-button">Commit and release once</button>
+              <button type="button" class="button secondary" id="dp-repeat-button" disabled>Request this batch again</button>
+            </div>
+            <p id="distributed-status" class="retirement" role="status" aria-live="polite">No batch has been released.</p>
+            <div id="distributed-release-result" class="dp-result"></div>
+          </section>
+
+          <section class="trust-table" aria-labelledby="trust-model-title">
+            <div class="section-heading compact"><span class="section-number">04</span><div><h2 id="trust-model-title">Same goal, different trust boundary</h2><p>These models are comparisons, not interchangeable labels.</p></div></div>
+            <div class="table-wrap" role="region" aria-label="Differential privacy trust model comparison" tabindex="0">
+              <table>
+                <thead><tr><th scope="col">Model</th><th scope="col">Who sees inputs?</th><th scope="col">Where noise is trusted</th><th scope="col">Failure boundary</th></tr></thead>
+                <tbody>
+                  <tr><th scope="row">Central DP</th><td>Trusted curator</td><td>Curator adds calibrated noise</td><td>Curator compromise exposes raw records</td></tr>
+                  <tr><th scope="row">Local DP</th><td>No curator sees raw input</td><td>Every client randomizes its own record</td><td>Usually pays substantially more utility cost</td></tr>
+                  <tr><th scope="row">This distributed lesson</th><td>Two non-colluding Prio3 aggregators each see only a share</td><td>Privacy comes from an honest activated draw; the no-activation event is charged to δ</td><td>Aggregator collusion invalidates the aggregate-view claim; fewer than six honest contributors invalidate the advertised activation-failure term δ ≤ 10<sup>−6</sup> (a weaker h-specific term may remain), while the total also adds the disclosed cap-coupling term</td></tr>
+                  <tr><th scope="row">Shuffle DP</th><td>Analyzer receives unlinkably shuffled reports</td><td>Clients randomize; shuffler hides linkage</td><td>Comparison only: this lab implements no shuffler or amplification theorem</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <aside class="scope-warning"><i data-lucide="info" aria-hidden="true"></i><p><strong>Precisely bounded.</strong> Prio3 proves only that each shifted combined contribution is in range; it cannot prove the salary, clipping, decomposition, activation coin, random noise, sender identity, or “honest” label. The common context binds the full roster but does not authenticate a report to one roster slot; real intake must bind one authenticated sender to one committed member. Corrupt submissions must also be fixed before hidden honest noise can be learned; adaptive cancellation is outside this privacy claim. A cap overflow or incomplete committed cohort aborts without a release. Each scenario run is a separate counterfactual teaching world; its outputs must not be combined. Repeating or changing a real cohort needs new privacy accounting, and a nonce registry alone does not stop subset or differencing attacks. This UI abandons a batch after a cap failure, but its volatile in-memory ledger and low-level report builder do not provide durable, atomic production enforcement.</p></aside>
+        </section>
+
         <section id="panel-break" class="panel" role="tabpanel" aria-labelledby="tab-break" tabindex="0" hidden>
-          <div class="section-heading"><span class="section-number">03</span><div><h2>Make the verifier say no</h2><p>These controls bypass the friendly input path and attack the real proof preparation code.</p></div></div>
+          <div class="section-heading"><span class="section-number">05</span><div><h2>Make the verifier say no</h2><p>These controls bypass the friendly input path and attack the real proof preparation code.</p></div></div>
           <div class="attack-grid">
             <article class="attack-item">
               <div class="attack-title"><i data-lucide="ruler" aria-hidden="true"></i><h3>Oversized salary</h3></div>
@@ -141,7 +199,7 @@
         </section>
 
         <section id="panel-limits" class="panel" role="tabpanel" aria-labelledby="tab-limits" tabindex="0" hidden>
-          <div class="section-heading"><span class="section-number">04</span><div><h2>What a valid proof cannot prove</h2><p>A validity proof checks the circuit statement, not the world outside it.</p></div></div>
+          <div class="section-heading"><span class="section-number">06</span><div><h2>What a valid proof cannot prove</h2><p>A validity proof checks the circuit statement, not the world outside it.</p></div></div>
           <div class="limits-layout">
             <section class="fixture" aria-labelledby="lie-title">
               <p class="eyebrow">NEGATIVE CLAIM 01</p>
@@ -160,14 +218,14 @@
           </div>
 
           <section class="vectors-section" aria-labelledby="vectors-title">
-            <div class="section-heading compact"><span class="section-number">05</span><div><h2 id="vectors-title">Pinned evidence</h2><p>Runtime checks use the same deterministic inputs as the committed unit tests.</p></div></div>
+            <div class="section-heading compact"><span class="section-number">07</span><div><h2 id="vectors-title">Pinned evidence</h2><p>Runtime checks use the same deterministic inputs as the committed unit tests.</p></div></div>
             <div id="kat-panel" class="kat-panel" role="status" aria-live="polite"></div>
             <details>
               <summary>Protocol scope and extension seams</summary>
               <div class="scope-grid">
                 <div><h3>Real here</h3><ul><li>Field64 arithmetic and serialization</li><li>TurboSHAKE128 with domain byte 1</li><li>BBCGGI19 FLP prove, query, and decide</li><li>Prio3Count and bounded Prio3Sum</li></ul></div>
-                <div><h3>Not this lab</h3><ul><li>DAP transport or HTTP</li><li>Poplar1 or IDPF</li><li>SumVec or Histogram</li><li>Differential privacy on the result</li><li>More than two aggregators</li></ul></div>
-                <div><h3>Extension seams</h3><ul><li>Vector circuits in <code>src/flp/circuit.ts</code></li><li>DP after <code>unshard()</code></li><li>Additional VDAF instances beside Prio3</li></ul></div>
+                <div><h3>Not this lab</h3><ul><li>DAP transport or HTTP</li><li>Poplar1 or IDPF</li><li>SumVec or Histogram</li><li>A production DP deployment</li><li>More than two aggregators</li></ul></div>
+                <div><h3>Extension seams</h3><ul><li>Vector circuits in <code>src/flp/circuit.ts</code></li><li>Other audited distributed-noise constructions</li><li>Additional VDAF instances beside Prio3</li></ul></div>
               </div>
             </details>
           </section>
