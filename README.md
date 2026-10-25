@@ -20,6 +20,13 @@ Canonne-Kamath-Steinke algorithms, and releases at most once from an all-or-noth
 cohort. This is a Shi-inspired teaching composition, not an implementation of Shi et al.'s private
 stream aggregation system, DAP, or shuffle DP.
 
+A second, separately labeled lesson studies abort observability using the outcome-leakage model in
+Meisingseth's *On Aborts in Differential Privacy*. It does not modify or attack the Prio3 route. An
+exact sensitivity-one additive mechanism on two neighboring datasets uses
+`Pr[Z=z] = 1/(3*2^|z|)`, then compares a public `ABORT`, success-conditioned publication, a visibly
+capped retry transcript, and an abort coin independent of the candidate. Every probability and
+likelihood ratio is reduced with `BigInt` rational arithmetic; this path performs no sampling.
+
 This is not production crypto. It is browser-based teaching code, is not constant-time, and does not
 implement DAP transport or persistence. All three roles share one browser process, where the fixed
 demonstration verification key is visible to client code; this does not reproduce the draft's
@@ -44,7 +51,10 @@ verification-key secrecy or secure-channel assumptions.
 7. **Distributed-noise release** - clamp salaries to `$0..$250,000`, floor them to `$5,000` units,
 	contribute independently activated exact discrete-Laplace noise inside the reports, and expose only
 	the one noisy aggregate to the collector.
-8. **Pinned evidence** - run three browser-visible checks against the official Count and Sum vectors.
+8. **Abort and retry observer model** - compare one ordinary release, one outcome-dependent abort
+	with `ABORT` in the full output, publication conditioned on success, a complete capped-three retry
+	transcript, and a feedback-disabled independent-abort control.
+9. **Pinned evidence** - run three browser-visible checks against the official Count and Sum vectors.
 
 ## When to Use It
 
@@ -56,6 +66,10 @@ Use the distributed lesson to study how output privacy needs an independently sp
 sensitivity, sampler, honest-contributor threshold, dropout rule, privacy ledger, and collector
 view in addition to secure aggregation. Its deliberately small cohort and large visible error make
 the privacy-utility tradeoff inspectable rather than deployment-ready.
+
+Use the abort model to study why the complete observable transcript and the identity of the party
+that sees a candidate must be specified before assigning a privacy claim. It is a bounded exact
+example, not a claim that every abort is unsafe or that it reproduces an abort attack on Prio3.
 
 Do not use this lab as a deployment library. Do not use Prio3 alone when the output also needs
 differential privacy, when both aggregators may collude, or when authenticity and truthfulness of the
@@ -126,6 +140,24 @@ shares, and combines accepted output shares without a backend.
   exact queries needs explicit composition accounting; a nonce registry alone does not stop
   differencing. The browser ledger is volatile teaching state: a reload resets it, and the lab does
   not implement durable, atomic, multi-worker enforcement.
+- In the separate abort model, `f(D0)=0`, `f(D1)=1`, and the ordinary additive mechanism is tight
+  pure `ln(2)`-DP. If an outcome-only aborter suppresses candidates at or below `-1`, one attempt
+  remains tight at ratio `2` when public `ABORT` is part of the output. That entire output is
+  postprocessing of one private candidate, so the existence of an abort does not itself break DP.
+- Conditioning one attempt on publication—equivalently, reporting eventual success under unbounded
+  fresh retries—produces a different distribution. Its tight ratio is
+  `5/2`; if the original ratio `2` is retained, the exact necessary additive term is `delta=1/10`.
+  The complete capped-three public transcript records every visible abort and retry and is tight at
+  ratio `8`, consistent with ordinary three-fold sequential composition. These are direct exact
+  calculations for this bounded-retry teaching model, not a claim of the paper's general bounds.
+  The noise itself has infinite integer support; the complete table groups that support into event
+  classes on which the likelihood ratio is constant.
+- The feedback-disabled control uses a fresh independent abort coin on every attempt, independent of
+  the hidden candidate. Its
+  complete capped transcript remains tight at ratio `2`, because visible retry count is independent
+  of the dataset and only one published candidate carries dataset-dependent information. The public
+  analyst never receives rejected candidate values; the outcome aborter sees one before deciding;
+  the two-neighbor ledger is an explicitly omniscient teaching view.
 - Zero accepted reports have no defined aggregate and are refused.
 
 ## Real-World Usage
@@ -146,6 +178,14 @@ Primary references:
 - [The Discrete Gaussian for Differential Privacy](https://arxiv.org/abs/2004.00010) - its Algorithms
   1 and 2 provide the exact Bernoulli and discrete-Laplace sampler used here
 - [NIST SP 800-226, Guidelines for Evaluating Differential Privacy Guarantees](https://doi.org/10.6028/NIST.SP.800-226)
+- [On Aborts in Differential Privacy, ePrint 2026/2059](https://eprint.iacr.org/2026/2059), received
+  16 September and approved 18 September 2026. This lesson uses the aborting-mechanism and leakage
+  definitions in §3
+  (Definitions 5–7, PDF pp. 10–11), the single-aborter accounting in §3.1 (Lemma 1 and Theorem 1,
+  pp. 11–12), and the success-conditioned conversion in §4.3 (Theorem 5, pp. 17–18). The paper's
+  attacker model is abstract; it does not analyze this lab's Prio3 construction. The capped retry
+  transcript and independent-feedback control here are explicit finite adaptations, derived and
+  tested directly rather than presented as reproductions of a paper theorem.
 
 ## How to Run Locally
 
@@ -177,10 +217,10 @@ npm run build
 npx playwright install chromium
 npm run test:a11y
 npm run test:verdicts
-npm run test:kills     # slow; replays all 64 recorded mutations
+npm run test:kills     # slow; replays all 70 recorded mutations
 ```
 
-The suite currently contains 151 Vitest tests. It includes the official
+The suite currently contains 170 Vitest tests. It includes the official
 `XofTurboShake128`, `Prio3Count_0`, and `Prio3Sum_0` known-answer fixtures, exact serialized verifier
 shares, malformed-input rejection, proof-share tampering, aggregation, Field64 boundaries, the
 replay behaviour: that preparation accepts a replayed report a second time, that the unrefused replay
@@ -191,17 +231,26 @@ clamp/quantization and wrap bounds, exact differencing, real `Prio3Sum(8242)` pr
 post-unshard decoding, all-or-nothing delivery, corrupt/honest thresholds, one-release state, and
 canonical binding of the batch, ordered cohort and every fixed mechanism parameter.
 
-The Playwright gate contains 33 tests. Two drive every reachable exhibit at desktop and 380px with
+Thirteen focused abort-model tests cover reduced rational arithmetic, the exact two-sided geometric
+PMF and tails, both neighboring shifts, transcript normalization, a deliberately incomplete
+distribution, one-attempt postprocessing, success conditioning, all capped-three event classes,
+the independent-feedback control, observer boundaries, smaller caps, and rejected cap inputs.
+
+The Playwright gate contains 35 tests. Two drive every reachable exhibit at desktop and 380px with
 reduced motion, axe WCAG 2.1 A/AA, independent text-contrast and control-boundary oracles, and reflow
-checks. Four state-integrity tests also cover keyboard navigation across all four tabs and retirement
-of a distributed collector view when its scenario changes. Twenty claims tests independently
+checks. Five state-integrity tests also cover keyboard navigation across all four tabs, retirement
+of a distributed collector view when its scenario changes, and retirement of the exact abort ledger
+when its attempt cap changes. Twenty-one claims tests independently
 recompute the displayed verifier sum, payroll aggregate,
 range boundary, KAT count and summary word, retirement behavior, the sharded envelopes, the replayed
 tally summed over its rendered contributions, the preparation verdict against the displayed combined
 verifier, the tally match word against the two displayed totals, the gadget-consistency refusal, the
 colluded reconstruction, both negative claims, exact-release differencing, every distributed input
 transformation, the noisy aggregate, and both additive delta terms. They also prove that corruption,
-dropout, collusion, cap overflow and a repeated batch release produce no aggregate. Seven
+dropout, collusion, cap overflow and a repeated batch release produce no aggregate. The abort-model
+claim test independently rebuilds all displayed rational probabilities and tight ratios, sums both
+capped transcript distributions to one, checks the attempt count and threshold, and proves that
+rejected candidates do not enter the public analyst view. Seven
 verdict-coverage tests, and one assertion that runs after all of them, are described below.
 
 ## Every Verdict and Every Measurement Is Computed, Marked, and Mutated
@@ -210,12 +259,13 @@ Nothing this page prints as an outcome is a fixed string, and nothing it prints 
 unchecked. Each rendered verdict branches on a value the page computed and carries a `data-verdict`
 marker; each rendered measurement carries a `data-claim` marker and the `data-value` behind the words.
 
-Verdicts (20): `preparation` · `tally-match` · `range-attack` · `tamper-attack` · `replay-vdaf` ·
+Verdicts (22): `preparation` · `tally-match` · `range-attack` · `tamper-attack` · `replay-vdaf` ·
 `replay-intake` · `collusion` · `valid-lie` · `valid-lie-row` · `single-report` · `kat-summary` ·
 `kat-row` · `dp-exact-disclosure` · `dp-prio-accepted` · `dp-release` · `dp-threshold-refusal` ·
-`dp-dropout-refusal` · `dp-repeat-refusal` · `dp-collusion-refusal` · `dp-cap-refusal`
+`dp-dropout-refusal` · `dp-repeat-refusal` · `dp-collusion-refusal` · `dp-cap-refusal` ·
+`abort-conditioned-bound` · `abort-view-boundary`
 
-Measurements (44): `report-measurement` · `leader-share` · `helper-share` · `verifier-a` ·
+Measurements (48): `report-measurement` · `leader-share` · `helper-share` · `verifier-a` ·
 `verifier-b` · `combined-verifier` · `submitted-count` · `accepted-count` · `rejected-count` ·
 `protocol-aggregate` · `plain-sum` · `collusion-share-a` · `collusion-share-b` · `lie-row-reported` ·
 `lie-row-sealed` · `lie-aggregate` · `lie-truth` · `single-input` · `single-aggregate` · `kat-count` ·
@@ -226,13 +276,14 @@ Measurements (44): `report-measurement` · `leader-share` · `helper-share` · `
 `dp-accepted-count` ·
 `dp-participant-count` · `dp-honest-count` · `dp-protocol-noisy-units` ·
 `dp-noisy-release-dollars` · `dp-exact-sum` · `dp-total-noise` · `dp-delta-activation` ·
-`dp-delta-cap` · `dp-delta-total`
+`dp-delta-cap` · `dp-delta-total` · `abort-threshold` · `abort-retry-cap` ·
+`abort-probability` · `abort-ratio`
 
 Coverage is derived by walking the rendered page, not from a list kept by hand. `driveEveryState()`
 visits **every option of every control that changes what renders** - both measurement types, the
 measurement input unchanged, changed and empty, all four tabs, both fixture buttons, all three
 attack buttons, all seven distributed scenarios, exact differencing, successful and repeated
-release, and both collusion switches in both positions - each control on its own rather than the
+release, all three abort-model retry caps, and both collusion switches in both positions - each control on its own rather than the
 cross-product. It is not a test; it is the denominator the rules below are applied to, so a state it
 never reaches is outside all of them. The tab list's arrow keys and the limits/trace `<details>`
 controls are skipped on purpose: they change visibility but introduce no new rendered markup.
@@ -278,14 +329,17 @@ expected value is derived per run, and writing one into the registry would put b
 literal a derived oracle exists to remove. On an unmutated page a tautological `expectClaim()` is
 observationally identical to a correct one, so no rule read on a green run can separate them. Only a
 differential can, and that is `npm run test:kills` (`tools/verdict-kill.mjs`): it re-establishes the
-baseline, then applies each of the 64 recorded mutations in turn and requires the test that record
+baseline, then applies each of the 70 recorded mutations in turn and requires the test that record
 names to go **red**. A survivor means the record is not evidence, whatever the source says and
 whatever ran. It is slow — one rebuild and one gate run per record — so it is a command rather than
 a routine CI step. S04 delivery ran it once through a temporary PR-only workflow, which was removed
 after its evidence was recorded. [Hosted run 40123033025](https://github.com/systemslibrarian/crypto-lab-proof-tally/actions/runs/40123033025)
 reported `baseline green, 27 specs` and then `64/64 killed, 0 survived, 0 neither` for the reviewed
-tree. Run it locally after touching any oracle in `e2e/claims.spec.ts`. Delivery requires a green
-unmutated baseline and every one of the 64 mutations killed in the same replay session.
+tree. PR-06 replayed its six new abort/retry records through the same isolated runner before its
+temporary workflow was removed. [Hosted run 40203649860](https://github.com/systemslibrarian/crypto-lab-proof-tally/actions/runs/40203649860)
+reported `baseline green, 28 specs` and then `6/6 killed, 0 survived, 0 neither`. Run it locally
+after touching any oracle in `e2e/claims.spec.ts`. Delivery requires a green
+unmutated baseline and every one of the 70 mutations killed in the same replay session.
 
 Where a total is summed over a list, the oracle sums the rendered list rather than multiplying one
 entry by a count - the payroll tally, the valid-lie ledger, and the replay tally all derive their
@@ -299,7 +353,7 @@ whole gate green. They are now marked — `replay-tally-before` for the figure t
 and `replay-total` reused for the figure it moves to, since that is the same claim the ledger states
 — and `expectClaim()` holds both `replay-total` nodes to the one derived total.
 
-Each of the sixty-four markers has a §4.1c mutation recorded with the recipe that produces it:
+Each of the seventy markers has a §4.1c mutation recorded with the recipe that produces it:
 
 ```bash
 node tools/verdict-mutation.mjs list

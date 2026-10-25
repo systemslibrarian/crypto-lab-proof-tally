@@ -7,6 +7,7 @@ import { tamperProofShare, type Prio3 } from '../prio3/core'
 import { createPrio3Count, createPrio3Sum } from '../prio3/instances'
 import { NonceRegistry } from '../prio3/replay'
 import type { PreparationTrace, Report } from '../prio3/types'
+import { initializeAbortModelPanel } from './abortModel'
 import { initializeDistributedPanel } from './distributed'
 
 type Mode = 'sum' | 'count'
@@ -450,6 +451,7 @@ function wireTabs(): void {
 export function initializeApp(): void {
   wireTabs()
   initializeDistributedPanel({ claim, verdict, money })
+  initializeAbortModelPanel({ claim, verdict })
   document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       const nextMode = button.dataset.mode as Mode

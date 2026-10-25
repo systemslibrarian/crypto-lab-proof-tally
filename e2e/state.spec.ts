@@ -62,3 +62,17 @@ test('changing a distributed scenario retires the prior batch and collector view
   await expect(page.locator('#distributed-status')).toContainText('separate teaching world')
   await expect(page.locator('#panel-distributed .scope-warning')).toContainText('outputs must not be combined')
 })
+
+test('changing the abort retry cap retires the exact ledger before recomputation', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Distributed DP' }).click()
+  await page.getByRole('button', { name: 'Compute exact transcript' }).click()
+  await expect(page.locator('#abort-model-result [data-claim="abort-retry-cap"]')).toHaveText('3 attempts')
+
+  await page.getByLabel('Visible attempt cap').selectOption('2')
+  await expect(page.locator('#abort-model-result')).toBeEmpty()
+  await expect(page.locator('#abort-model-status')).toContainText('retired')
+
+  await page.getByRole('button', { name: 'Compute exact transcript' }).click()
+  await expect(page.locator('#abort-model-result [data-claim="abort-retry-cap"]')).toHaveText('2 attempts')
+  await expect(page.locator('[data-abort-transcript-event]')).toHaveCount(5)
+})

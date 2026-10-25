@@ -150,6 +150,22 @@
             <div id="distributed-release-result" class="dp-result"></div>
           </section>
 
+          <section class="dp-workbench abort-workbench" aria-labelledby="abort-model-title">
+            <div class="dp-copy"><p class="eyebrow alarm-text">SEPARATE EXACT MODEL · EPRINT 2026/2059</p><h3 id="abort-model-title">Who sees an abort changes the mechanism</h3><p>This bounded-retry, exact-rational lesson is separate from the Prio3 route above. It compares one release, an outcome-dependent abort, publication conditioned on success, a complete capped retry transcript, and an independent-abort control.</p></div>
+            <div class="dp-controls abort-controls">
+              <label for="abort-retry-cap">Visible attempt cap</label>
+              <select id="abort-retry-cap">
+                <option value="1">one attempt</option>
+                <option value="2">two attempts</option>
+                <option value="3" selected>three attempts</option>
+              </select>
+              <button type="button" class="button primary" id="abort-model-button">Compute exact transcript</button>
+            </div>
+            <p id="abort-model-status" class="retirement" role="status" aria-live="polite">No abort-model ledger has been computed.</p>
+            <div id="abort-model-result" class="dp-result"></div>
+            <p class="dp-accounting abort-source"><a href="https://eprint.iacr.org/2026/2059">Meisingseth, “On Aborts in Differential Privacy,” ePrint 2026/2059</a>, received 16 September and approved 18 September 2026. The paper's outcome-leakage model motivates the selective case; this lab's finite retry transcript is an explicit bounded adaptation.</p>
+          </section>
+
           <section class="trust-table" aria-labelledby="trust-model-title">
             <div class="section-heading compact"><span class="section-number">04</span><div><h2 id="trust-model-title">Same goal, different trust boundary</h2><p>These models are comparisons, not interchangeable labels.</p></div></div>
             <div class="table-wrap" role="region" aria-label="Differential privacy trust model comparison" tabindex="0">
@@ -165,7 +181,7 @@
             </div>
           </section>
 
-          <aside class="scope-warning"><i data-lucide="info" aria-hidden="true"></i><p><strong>Precisely bounded.</strong> Prio3 proves only that each shifted combined contribution is in range; it cannot prove the salary, clipping, decomposition, activation coin, random noise, sender identity, or “honest” label. The common context binds the full roster but does not authenticate a report to one roster slot; real intake must bind one authenticated sender to one committed member. Corrupt submissions must also be fixed before hidden honest noise can be learned; adaptive cancellation is outside this privacy claim. A cap overflow or incomplete committed cohort aborts without a release. Each scenario run is a separate counterfactual teaching world; its outputs must not be combined. Repeating or changing a real cohort needs new privacy accounting, and a nonce registry alone does not stop subset or differencing attacks. This UI abandons a batch after a cap failure, but its volatile in-memory ledger and low-level report builder do not provide durable, atomic production enforcement.</p></aside>
+          <aside class="scope-warning"><i data-lucide="info" aria-hidden="true"></i><p><strong>Precisely bounded.</strong> Prio3 proves only that each shifted combined contribution is in range; it cannot prove the salary, clipping, decomposition, activation coin, random noise, sender identity, or “honest” label. The common context binds the full roster but does not authenticate a report to one roster slot; real intake must bind one authenticated sender to one committed member. Corrupt submissions must also be fixed before hidden honest noise can be learned; adaptive cancellation is outside this privacy claim. A cap overflow or incomplete committed cohort aborts without a release. Each scenario run is a separate counterfactual teaching world; its outputs must not be combined. Repeating or changing a real cohort needs new privacy accounting, and a nonce registry alone does not stop subset or differencing attacks. This UI abandons a batch after a cap failure, but its volatile in-memory ledger and low-level report builder do not provide durable, atomic production enforcement. The abort/retry exhibit is a distinct two-neighbor additive-noise model: it does not claim an attack on this S04 construction, reproduce a Prio3 deployment, or imply that every abort violates differential privacy.</p></aside>
         </section>
 
         <section id="panel-break" class="panel" role="tabpanel" aria-labelledby="tab-break" tabindex="0" hidden>

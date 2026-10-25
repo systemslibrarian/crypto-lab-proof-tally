@@ -530,5 +530,55 @@
     "find": "const totalValue = `${activationValue}+${capValue}`",
     "replace": "const totalValue = `${activationValue}-${capValue}`",
     "kills": "claims.spec.ts - the displayed distributed privacy accounting follows the declared parameters"
+  },
+  {
+    "marker": "abort-threshold",
+    "kind": "claim",
+    "file": "src/distributed/abortModel.ts",
+    "find": "export const ABORT_AT_OR_BELOW = -1n",
+    "replace": "export const ABORT_AT_OR_BELOW = -2n",
+    "kills": "claims.spec.ts - the exact abort ledger separates observers and recomputes every probability"
+  },
+  {
+    "marker": "abort-probability",
+    "kind": "claim",
+    "file": "src/distributed/abortModel.ts",
+    "find": "d0: divide(event.d0, d0Success),\n    d1: divide(event.d1, d1Success),",
+    "replace": "d0: divide(event.d0, add(d0Success, d0Success)),\n    d1: divide(event.d1, add(d1Success, d1Success)),",
+    "kills": "claims.spec.ts - the exact abort ledger separates observers and recomputes every probability"
+  },
+  {
+    "marker": "abort-ratio",
+    "kind": "claim",
+    "file": "src/distributed/abortModel.ts",
+    "find": "envelope: ratioEnvelope(conditioned),",
+    "replace": "envelope: ratioEnvelope(conditioned.slice(1)),",
+    "kills": "claims.spec.ts - the exact abort ledger separates observers and recomputes every probability"
+  },
+  {
+    "marker": "abort-retry-cap",
+    "kind": "claim",
+    "file": "src/ui/abortModel.ts",
+    "find": "const analysis = analyzeAbortRetry(Number(retryCap.value))",
+    "replace": "const analysis = analyzeAbortRetry(1)",
+    "kills": "claims.spec.ts - the exact abort ledger separates observers and recomputes every probability"
+  },
+  {
+    "marker": "abort-conditioned-bound",
+    "kind": "verdict",
+    "paints": "alarm",
+    "file": "src/ui/abortModel.ts",
+    "find": "verdict('abort-conditioned-bound', changedByConditioning ? 'alarm' : 'pass',",
+    "replace": "verdict('abort-conditioned-bound', changedByConditioning ? 'pass' : 'alarm',",
+    "kills": "claims.spec.ts - the exact abort ledger separates observers and recomputes every probability"
+  },
+  {
+    "marker": "abort-view-boundary",
+    "kind": "verdict",
+    "paints": "pass",
+    "file": "src/ui/abortModel.ts",
+    "find": "<p>The analyst sees a published value or the symbol <code>ABORT</code>, plus the ordered retry count. A rejected candidate is absent from this view.</p>",
+    "replace": "<p data-aborter-candidate=\"leaked\">The analyst sees a published value or the symbol <code>ABORT</code>, plus the ordered retry count. A rejected candidate is absent from this view.</p>",
+    "kills": "claims.spec.ts - the exact abort ledger separates observers and recomputes every probability"
   }
 ]
