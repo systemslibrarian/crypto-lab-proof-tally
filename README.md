@@ -335,7 +335,10 @@ whatever ran. It is slow — one rebuild and one gate run per record — so it i
 a routine CI step. S04 delivery ran it once through a temporary PR-only workflow, which was removed
 after its evidence was recorded. [Hosted run 40123033025](https://github.com/systemslibrarian/crypto-lab-proof-tally/actions/runs/40123033025)
 reported `baseline green, 27 specs` and then `64/64 killed, 0 survived, 0 neither` for the reviewed
-tree. Run it locally after touching any oracle in `e2e/claims.spec.ts`. Delivery requires a green
+tree. PR-06 replayed its six new abort/retry records through the same isolated runner before its
+temporary workflow was removed. [Hosted run 40203649860](https://github.com/systemslibrarian/crypto-lab-proof-tally/actions/runs/40203649860)
+reported `baseline green, 28 specs` and then `6/6 killed, 0 survived, 0 neither`. Run it locally
+after touching any oracle in `e2e/claims.spec.ts`. Delivery requires a green
 unmutated baseline and every one of the 70 mutations killed in the same replay session.
 
 Where a total is summed over a list, the oracle sums the rendered list rather than multiplying one
