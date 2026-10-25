@@ -290,7 +290,8 @@ summary { padding: .75rem .9rem; font-weight: 700; cursor: pointer; }
   .dp-controls .switch-row { justify-self: start; }
   .dp-trace table { table-layout: fixed; }
   .dp-trace :is(th, td) { padding-inline: .25rem; overflow-wrap: anywhere; }
-  .abort-transcript table { min-width: 30rem; }
+  .abort-transcript table { table-layout: fixed; }
+  .abort-transcript :is(th, td) { padding-inline: .25rem; overflow-wrap: anywhere; }
   .trust-table table { table-layout: fixed; }
   .trust-table :is(th, td) { overflow-wrap: anywhere; }
 }

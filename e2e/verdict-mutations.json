@@ -544,7 +544,7 @@
     "kind": "claim",
     "file": "src/distributed/abortModel.ts",
     "find": "d0: divide(event.d0, d0Success),\n    d1: divide(event.d1, d1Success),",
-    "replace": "d0: divide(event.d0, ONE),\n    d1: divide(event.d1, ONE),",
+    "replace": "d0: divide(event.d0, add(d0Success, d0Success)),\n    d1: divide(event.d1, add(d1Success, d1Success)),",
     "kills": "claims.spec.ts - the exact abort ledger separates observers and recomputes every probability"
   },
   {
