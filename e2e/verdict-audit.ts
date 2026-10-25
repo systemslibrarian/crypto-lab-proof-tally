@@ -245,7 +245,7 @@ export async function auditRenderedVerdicts(page: Page): Promise<RenderedMarkers
     // The digits must not continue a word: "Prio3 checks" is a product name, not 3 checks.
     const UNITS = /(?<![A-Za-z])\d[\d,.]*\s*(?:B|KB|MB|bits?|bytes?|ops?|operations?|fields?|shares?|reports?|checks?|ms|s|×|x)\b/i
     const BARE = /^\$?\d[\d,]*(?:\.\d+)?$/
-    const RESULT_REGIONS = '#mechanism, #tally-output, #distributed-exact-result, #distributed-release-result, #range-result, #tamper-result, #nonce-result, #collusion-result, #lie-result, #single-result, #kat-panel'
+    const RESULT_REGIONS = '#mechanism, #tally-output, #distributed-exact-result, #distributed-release-result, #abort-model-result, #range-result, #tamper-result, #nonce-result, #collusion-result, #lie-result, #single-result, #kat-panel'
 
     const verdicts: string[] = []
     const claims: string[] = []
@@ -354,11 +354,12 @@ export async function expectClaim(
 }
 
 /** Reads this page's controls off the rendered page, rather than trusting a list in a spec. */
-export async function controlOptions(page: Page): Promise<{ modes: string[]; tabs: string[]; scenarios: string[] }> {
+export async function controlOptions(page: Page): Promise<{ modes: string[]; tabs: string[]; scenarios: string[]; abortCaps: string[] }> {
   return {
     modes: await page.locator('[data-mode]').evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).dataset.mode ?? '')),
     tabs: await page.locator('[role="tab"]').evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).dataset.panel ?? '')),
     scenarios: await page.locator('#dp-scenario option').evaluateAll((nodes) => nodes.map((node) => (node as HTMLOptionElement).value)),
+    abortCaps: await page.locator('#abort-retry-cap option').evaluateAll((nodes) => nodes.map((node) => (node as HTMLOptionElement).value)),
   }
 }
 
@@ -377,6 +378,7 @@ export async function controlOptions(page: Page): Promise<{ modes: string[]; tab
  *  - shard / combine / add and the payroll button: all four rail stages, and both the empty
  *    and the populated tally;
  *  - the exhibit tabs: all four panels, including every distributed-DP scenario;
+ *  - the abort-model attempt cap: one, two, and three visible attempts, each recomputed;
  *  - the three attack buttons and both fixture buttons;
  *  - the collusion checkbox: checked and unchecked, since unchecking re-renders.
  *
@@ -410,6 +412,7 @@ export async function driveEveryState(page: Page): Promise<RenderedMarkers> {
   expect(controls.scenarios, 'the all-honest and threshold audit fixtures must remain reachable').toEqual(
     expect.arrayContaining(['all-honest', 'threshold']),
   )
+  expect(controls.abortCaps, 'the bounded abort-model retry caps this walk was written for').toEqual(['1', '2', '3'])
 
   const measurement = page.getByLabel('Salary measurement')
   await page.getByRole('button', { name: 'Shard report' }).click()
@@ -438,6 +441,13 @@ export async function driveEveryState(page: Page): Promise<RenderedMarkers> {
   await page.getByRole('tab', { name: 'Distributed DP' }).click()
   await page.getByRole('button', { name: 'Run exact differencing' }).click()
   await capture('distributed exact disclosure')
+
+  const abortCap = page.getByLabel('Visible attempt cap')
+  for (const value of controls.abortCaps) {
+    await abortCap.selectOption(value)
+    await page.getByRole('button', { name: 'Compute exact transcript' }).click()
+    await capture(`abort model with retry cap ${value}`)
+  }
 
   const scenario = page.getByLabel('Participant scenario')
   const release = page.getByRole('button', { name: 'Commit and release once' })

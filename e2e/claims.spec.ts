@@ -3,6 +3,65 @@ import { expectClaim, expectVerdict } from './verdict-audit'
 
 const MODULUS = 18_446_744_069_414_584_321n
 
+interface ExactFraction {
+  n: bigint
+  d: bigint
+}
+
+function exactGcd(left: bigint, right: bigint): bigint {
+  let a = left < 0n ? -left : left
+  let b = right < 0n ? -right : right
+  while (b !== 0n) [a, b] = [b, a % b]
+  return a
+}
+
+function exact(n: bigint, d = 1n): ExactFraction {
+  if (d === 0n) throw new Error('zero denominator in browser oracle')
+  const sign = d < 0n ? -1n : 1n
+  const divisor = exactGcd(n, d)
+  return { n: sign * n / divisor, d: sign * d / divisor }
+}
+
+function exactAdd(left: ExactFraction, right: ExactFraction): ExactFraction {
+  return exact(left.n * right.d + right.n * left.d, left.d * right.d)
+}
+
+function exactSubtract(left: ExactFraction, right: ExactFraction): ExactFraction {
+  return exact(left.n * right.d - right.n * left.d, left.d * right.d)
+}
+
+function exactMultiply(left: ExactFraction, right: ExactFraction): ExactFraction {
+  return exact(left.n * right.n, left.d * right.d)
+}
+
+function exactDivide(left: ExactFraction, right: ExactFraction): ExactFraction {
+  return exact(left.n * right.d, left.d * right.n)
+}
+
+function exactPower(value: ExactFraction, exponent: number): ExactFraction {
+  return exact(value.n ** BigInt(exponent), value.d ** BigInt(exponent))
+}
+
+function exactKey(value: ExactFraction): string {
+  return value.d === 1n ? value.n.toString() : `${value.n}/${value.d}`
+}
+
+function exactText(value: ExactFraction): string {
+  return value.d === 1n
+    ? value.n.toLocaleString('en-US')
+    : `${value.n.toLocaleString('en-US')} / ${value.d.toLocaleString('en-US')}`
+}
+
+function exactMaxRatio(events: readonly { d0: ExactFraction; d1: ExactFraction }[]): ExactFraction {
+  return events.flatMap((event) => [exactDivide(event.d0, event.d1), exactDivide(event.d1, event.d0)])
+    .reduce((best, candidate) => candidate.n * best.d > best.n * candidate.d ? candidate : best, exact(1n))
+}
+
+function parseExact(value: string): ExactFraction {
+  const [numerator, denominator = '1'] = value.split('/')
+  return exact(BigInt(numerator), BigInt(denominator))
+}
+
 /** Stand-ins for the page's own renderers, so the oracle derives what it expects to read. */
 function money(value: bigint): string {
   return `$${value.toLocaleString('en-US')}`
@@ -450,4 +509,114 @@ test('the KAT summary word follows the rendered rows', async ({ page }) => {
   await expectVerdict(page, 'kat-summary', everyRowMatched
     ? { text: 'ALL MATCH', state: 'pass' }
     : { text: 'MISMATCH', state: 'reject' })
+})
+
+test('the exact abort ledger separates observers and recomputes every probability', async ({ page }) => {
+  await page.getByRole('tab', { name: 'Distributed DP' }).click()
+  await page.getByRole('button', { name: 'Compute exact transcript' }).click()
+
+  const one = exact(1n)
+  const q0 = exact(1n, 3n)
+  const q1 = exact(1n, 6n)
+  const zero0 = exact(1n, 3n)
+  const zero1 = exact(1n, 6n)
+  const positive0 = exactSubtract(exactSubtract(one, q0), zero0)
+  const positive1 = exactSubtract(exactSubtract(one, q1), zero1)
+  const success0 = exactSubtract(one, q0)
+  const success1 = exactSubtract(one, q1)
+  const conditionedZero0 = exactDivide(zero0, success0)
+  const conditionedZero1 = exactDivide(zero1, success1)
+  const conditionedPositive0 = exactDivide(positive0, success0)
+  const conditionedPositive1 = exactDivide(positive1, success1)
+  const conditionedEvents = [
+    { d0: conditionedZero0, d1: conditionedZero1 },
+    { d0: conditionedPositive0, d1: conditionedPositive1 },
+  ]
+  const conditionedDelta = exactSubtract(conditionedZero0, exactMultiply(exact(2n), conditionedZero1))
+  const independentAbort = exact(1n, 3n)
+  const cap = Number(await page.getByLabel('Visible attempt cap').inputValue())
+  expect(cap, 'the learner-visible bounded fixture defaults to the required capped-three case').toBe(3)
+
+  const cappedEvents: { d0: ExactFraction; d1: ExactFraction }[] = []
+  for (let aborted = 0; aborted < cap; aborted += 1) {
+    cappedEvents.push({
+      d0: exactMultiply(exactPower(q0, aborted), zero0),
+      d1: exactMultiply(exactPower(q1, aborted), zero1),
+    })
+    cappedEvents.push({
+      d0: exactMultiply(exactPower(q0, aborted), positive0),
+      d1: exactMultiply(exactPower(q1, aborted), positive1),
+    })
+  }
+  cappedEvents.push({ d0: exactPower(q0, cap), d1: exactPower(q1, cap) })
+
+  const ordinaryEvents = [
+    { d0: exact(2n, 3n), d1: exact(1n, 3n) },
+    { d0: exact(1n, 3n), d1: exact(2n, 3n) },
+  ]
+  const selectiveEvents = [
+    { d0: q0, d1: q1 },
+    { d0: zero0, d1: zero1 },
+    { d0: positive0, d1: positive1 },
+  ]
+  const independentTerminal = exactPower(independentAbort, cap)
+
+  const expectedProbabilities = [
+    q0,
+    q1,
+    conditionedZero0,
+    conditionedZero1,
+    conditionedDelta,
+    independentAbort,
+    independentTerminal,
+    independentTerminal,
+    ...cappedEvents.flatMap((event) => [event.d0, event.d1]),
+  ]
+  const expectedRatios = [
+    exactMaxRatio(ordinaryEvents),
+    exactMaxRatio(selectiveEvents),
+    exactMaxRatio(conditionedEvents),
+    exactMaxRatio(ordinaryEvents),
+    exactMaxRatio(cappedEvents),
+  ]
+
+  await expectClaim(page, 'abort-threshold', { value: -1n, text: '-1' })
+  await expectClaim(page, 'abort-retry-cap', { value: cap, text: `${cap} attempts` })
+  await expectClaim(page, 'abort-probability', {
+    value: expectedProbabilities.map(exactKey),
+    text: expectedProbabilities.map(exactText),
+  })
+  await expectClaim(page, 'abort-ratio', {
+    value: expectedRatios.map(exactKey),
+    text: expectedRatios.map(exactText),
+  })
+
+  const transcriptRows = page.locator('[data-abort-transcript-event]')
+  await expect(transcriptRows).toHaveCount(2 * cap + 1)
+  const rowProbabilities = await transcriptRows.evaluateAll((rows) => rows.map((row) =>
+    Array.from(row.querySelectorAll<HTMLElement>('[data-claim="abort-probability"]')).map((node) => node.dataset.value ?? ''),
+  ))
+  const totals = rowProbabilities.reduce((running, row) => ({
+    d0: exactAdd(running.d0, parseExact(row[0])),
+    d1: exactAdd(running.d1, parseExact(row[1])),
+  }), { d0: exact(0n), d1: exact(0n) })
+  expect(totals).toEqual({ d0: one, d1: one })
+
+  const publicView = page.locator('#abort-public-view')
+  const aborterView = page.locator('[data-observer-view="aborter"]')
+  await expect(publicView.locator('[data-aborter-candidate]')).toHaveCount(0)
+  await expect(aborterView.locator('[data-aborter-candidate]')).toHaveCount(1)
+  await expect(publicView).toContainText('complete observable transcript')
+  await expect(aborterView).toContainText('not public')
+  await page.getByText('Open omniscient exact ledger').click()
+  await expect(page.locator('[data-observer-view="teacher"]')).toContainText('not an attacker view')
+
+  await expectVerdict(page, 'abort-conditioned-bound', {
+    text: 'CONDITIONING CHANGES THE PRIVACY CLAIM',
+    state: 'alarm',
+  })
+  await expectVerdict(page, 'abort-view-boundary', {
+    text: 'OBSERVER VIEWS SEPARATED',
+    state: 'pass',
+  })
 })

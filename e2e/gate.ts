@@ -74,6 +74,15 @@ export async function driveAllStates(page: Page, viewportLabel: string): Promise
   await page.getByRole('button', { name: 'Run exact differencing' }).click()
   await scan(page, `${viewportLabel}: exact aggregate disclosure`)
 
+  await page.getByRole('button', { name: 'Compute exact transcript' }).click()
+  await page.getByText('Open omniscient exact ledger').click()
+  await scan(page, `${viewportLabel}: exact abort and retry ledger`)
+
+  await page.getByLabel('Visible attempt cap').selectOption('1')
+  await expect(page.locator('#abort-model-result')).toBeEmpty()
+  await page.getByRole('button', { name: 'Compute exact transcript' }).click()
+  await scan(page, `${viewportLabel}: one-attempt abort control`)
+
   const scenario = page.getByLabel('Participant scenario')
   const release = page.getByRole('button', { name: 'Commit and release once' })
   await release.click()
