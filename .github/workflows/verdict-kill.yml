@@ -1,0 +1,48 @@
+# Replays every recorded §4.1c verdict mutation and judges each against the four
+# rules in tools/verdict-kill.mjs. The per-PR gate (`verdict-coverage` in
+# deploy.yml) proves every rendered verdict HAS a recorded mutation; only this
+# differential proves each record still KILLS, and a record that survives is
+# not evidence whatever the source says. It rebuilds and reruns the gate once
+# per record, so it runs on a schedule and on demand rather than on every push.
+name: Verdict kill replay
+
+on:
+  schedule:
+    # Mondays 06:17 UTC, after the Dependabot bumps of the preceding week have merged.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verdict-kill
+  cancel-in-progress: false
+
+jobs:
+  verdict-kill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright browser
+        run: npx playwright install chromium
+      - name: Replay every recorded mutation against its owning test
+        # `tee` keeps the full verdict-by-verdict log as an artifact; the pipe
+        # must not hide the replay's own exit status.
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:kills 2>&1 | tee verdict-kill-report.txt
+      - name: Upload replay report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verdict-kill-report
+          path: verdict-kill-report.txt
+          if-no-files-found: error

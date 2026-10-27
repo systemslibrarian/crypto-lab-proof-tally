@@ -331,8 +331,11 @@ observationally identical to a correct one, so no rule read on a green run can s
 differential can, and that is `npm run test:kills` (`tools/verdict-kill.mjs`): it re-establishes the
 baseline, then applies each of the 70 recorded mutations in turn and requires the test that record
 names to go **red**. A survivor means the record is not evidence, whatever the source says and
-whatever ran. It is slow — one rebuild and one gate run per record — so it is a command rather than
-a routine CI step. S04 delivery ran it once through a temporary PR-only workflow, which was removed
+whatever ran. It is slow — one rebuild and one gate run per record — so it is not part of the per-PR
+gate; since 2026-10-27 it runs in full every Monday and on demand through
+`.github/workflows/verdict-kill.yml` (`workflow_dispatch`), which fails on any survivor and uploads
+the verdict-by-verdict log as the `verdict-kill-report` artifact. Before that it was a command only:
+S04 delivery ran it once through a temporary PR-only workflow, which was removed
 after its evidence was recorded. [Hosted run 40123033025](https://github.com/systemslibrarian/crypto-lab-proof-tally/actions/runs/40123033025)
 reported `baseline green, 27 specs` and then `64/64 killed, 0 survived, 0 neither` for the reviewed
 tree. PR-06 replayed its six new abort/retry records through the same isolated runner before its
