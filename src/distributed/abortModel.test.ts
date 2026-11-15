@@ -65,7 +65,7 @@ describe('two-sided geometric mechanism', () => {
   })
 })
 
-describe('CL084 abort/retry teaching analysis', () => {
+describe('abort/retry teaching analysis (Meisingseth, ePrint 2026/2059)', () => {
   const analysis = analyzeAbortRetry(DEFAULT_RETRY_CAP)
 
   it('uses the declared outcome-only policy and derives its one-attempt probabilities', () => {

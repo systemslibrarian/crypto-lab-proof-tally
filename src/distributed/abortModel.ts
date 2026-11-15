@@ -1,5 +1,7 @@
 /**
- * Exact, bounded-retry accounting for the lab's CL084 abort/retry teaching model.
+ * Exact, bounded-retry accounting for the lab's abort/retry teaching model,
+ * adapted from Meisingseth, "On Aborts in Differential Privacy" (2026),
+ * ePrint 2026/2059.
  *
  * This is deliberately separate from the S04 Prio3 release path.  The model has
  * neighboring query answers f(D0)=0 and f(D1)=1 and releases
