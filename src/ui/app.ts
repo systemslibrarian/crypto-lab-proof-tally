@@ -185,16 +185,26 @@ function retireIfChanged(nextValue: bigint): void {
   retireActiveReport('Previous result retired because the measurement changed.')
 }
 
-function readMeasurement(): bigint {
-  const input = element<HTMLInputElement>('#measurement')
-  if (!input.validity.valid || input.value.trim() === '') throw new RangeError('Enter an integer inside the configured range.')
-  return BigInt(input.value)
+function measurementValue(input: HTMLInputElement): bigint | undefined {
+  const value = input.valueAsNumber
+  if (!input.validity.valid || !Number.isSafeInteger(value)) return undefined
+
+  // A number control may round a long fractional input to an integer. Check that
+  // shifting the typed decimal point leaves only zero digits after it.
+  const [mantissa, exponent = '0'] = input.value.toLowerCase().split('e')
+  const [whole, fraction = ''] = mantissa.split('.')
+  const digits = whole + fraction
+  const significantDigits = digits.replace(/0+$/, '')
+  const trailingZeros = digits.length - significantDigits.length
+  if (/[1-9]/.test(significantDigits) && Number(exponent) < fraction.length - trailingZeros) return undefined
+  return BigInt(value)
 }
 
 function shardCurrent(): void {
   const status = element('#retirement-status')
   try {
-    const measurement = readMeasurement()
+    const measurement = measurementValue(element<HTMLInputElement>('#measurement'))
+    if (measurement === undefined) throw new RangeError('Enter an integer inside the configured range.')
     activeReport = { mode, measurement, report: protocolFor(mode).shard(CONTEXT, measurement), added: false }
     status.textContent = 'Fresh report created. Each aggregator now has only its own envelope.'
     renderMechanism()
@@ -462,12 +472,12 @@ export function initializeApp(): void {
     })
   })
   element<HTMLInputElement>('#measurement').addEventListener('input', (event) => {
-    const value = (event.currentTarget as HTMLInputElement).value.trim()
-    if (!/^\d+$/.test(value)) {
+    const value = measurementValue(event.currentTarget as HTMLInputElement)
+    if (value === undefined) {
       retireActiveReport('Previous result retired because the measurement is empty or invalid.')
       return
     }
-    retireIfChanged(BigInt(value))
+    retireIfChanged(value)
   })
   element('#shard-button').addEventListener('click', shardCurrent)
   element('#prepare-button').addEventListener('click', prepareCurrent)

@@ -4,6 +4,27 @@ test.beforeEach(async ({ page }) => {
   await page.goto('.')
 })
 
+test('equivalent numeric spellings preserve a prepared integer report', async ({ page }) => {
+  const input = page.getByLabel('Salary measurement')
+  const prepare = page.getByRole('button', { name: 'Combine verifier shares' })
+  const add = page.getByRole('button', { name: 'Add accepted report' })
+  await input.fill('1e2')
+  await page.getByRole('button', { name: 'Shard report' }).click()
+  await prepare.click()
+  for (const spelling of ['100.00', '1000e-1', '100']) {
+    await input.fill(spelling)
+    await expect(add).toBeEnabled()
+  }
+  await input.fill('100.000000000000000001')
+  await expect(add).toBeDisabled()
+  await page.getByRole('button', { name: 'Shard report' }).click()
+  await expect(prepare).toBeDisabled()
+  await expect(page.locator('#retirement-status')).toContainText('Enter an integer')
+  await input.fill('0e9')
+  await page.getByRole('button', { name: 'Shard report' }).click()
+  await expect(prepare).toBeEnabled()
+})
+
 test('empty or invalid input retires an actionable report', async ({ page }) => {
   const input = page.getByLabel('Salary measurement')
   await page.getByRole('button', { name: 'Shard report' }).click()
